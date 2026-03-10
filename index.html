@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>PT 設備管理系統</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@400;500;600;700;800;900&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<style>
+:root {
+  --bg:#eef0f4; --card:#fff; --ink:#141825; --ink2:#555e70; --ink3:#99a1b3;
+  --border:#e2e5ec; --accent:#1746a2; --accent-lt:#e8eefb;
+  --green:#0d9f6e; --green-lt:#e6f9f1; --red:#d03050; --red-lt:#fcedef;
+  --orange:#e07020; --orange-lt:#fef3e8; --blue:#2563eb; --blue-lt:#eff4ff;
+  --r:14px; --rs:10px;
+  --shadow:0 2px 10px rgba(20,24,37,.06);
+  --shadow-lg:0 14px 44px rgba(20,24,37,.16);
+  --font:'DM Sans','Noto Sans HK',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{font-family:var(--font);background:var(--bg);color:var(--ink);min-height:100vh;overflow-x:hidden}
+
+.header{background:linear-gradient(135deg,#141825,#1c2541 55%,#1746a2);color:#fff;padding:22px 18px 16px;position:sticky;top:0;z-index:100;box-shadow:0 4px 20px rgba(20,24,37,.3)}
+.header h1{font-size:20px;font-weight:800;letter-spacing:-.5px}
+.header .sub{font-size:11px;opacity:.5;margin-top:3px;letter-spacing:.5px;text-transform:uppercase}
+.header .status{position:absolute;right:18px;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:#f59e0b;animation:pulse 1.5s infinite}
+.dot.on{background:#0d9f6e;animation:none}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+
+.tab-bar{display:flex;gap:4px;overflow-x:auto;padding:0 14px 14px;background:linear-gradient(135deg,#141825,#1c2541 55%,#1746a2);position:sticky;top:61px;z-index:99;scrollbar-width:none}
+.tab-bar::-webkit-scrollbar{display:none}
+.tab-btn{padding:9px 16px;border-radius:22px;border:none;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.2s;font-family:var(--font);background:rgba(255,255,255,.1);color:rgba(255,255,255,.6)}
+.tab-btn.active{background:#fff;color:var(--ink);font-weight:700}
+
+.content{padding:16px;max-width:720px;margin:0 auto}
+.hidden{display:none!important}
+
+.card{background:var(--card);border-radius:var(--r);padding:16px;margin-bottom:12px;box-shadow:var(--shadow);border:1px solid var(--border)}
+.card.bdr-green{border-left:4px solid var(--green)}.card.bdr-gray{border-left:4px solid var(--border)}
+.card.bdr-red{border-left:4px solid var(--red)}.card.bdr-blue{border-left:4px solid var(--blue)}
+.card.dim{opacity:.72}
+
+.badge{display:inline-block;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700}
+.bg-green{background:var(--green-lt);color:var(--green)}.bg-red{background:var(--red-lt);color:var(--red)}
+.bg-blue{background:var(--blue-lt);color:var(--blue)}.bg-orange{background:var(--orange-lt);color:var(--orange)}
+.bg-ink{background:var(--accent-lt);color:var(--accent)}.bg-gray{background:#f0f1f5;color:var(--ink2)}
+
+.btn{padding:11px 20px;border-radius:var(--rs);border:none;font-weight:700;cursor:pointer;font-size:13px;font-family:var(--font);transition:.15s;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn-pri{background:var(--ink);color:#fff}.btn-acc{background:var(--accent);color:#fff}
+.btn-grn{background:var(--green);color:#fff}.btn-red{background:var(--red);color:#fff}
+.btn-blu{background:var(--blue);color:#fff}.btn-gho{background:#f0f1f5;color:var(--ink)}
+.btn-full{width:100%}.btn-sm{padding:7px 13px;font-size:12px;border-radius:8px}
+
+.fl{font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:5px;display:block}
+.fi,.fsel{width:100%;padding:11px 14px;border-radius:var(--rs);border:1.5px solid var(--border);font-size:14px;font-family:var(--font);background:var(--card);color:var(--ink);outline:none;transition:border .2s;margin-bottom:12px}
+.fi:focus,.fsel:focus{border-color:var(--accent)}
+
+.sw{position:relative;margin-bottom:14px}
+.si-icon{position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:15px;color:var(--ink3);pointer-events:none}
+.si{width:100%;padding:11px 40px 11px 40px;border-radius:var(--rs);border:1.5px solid var(--border);font-size:14px;font-family:var(--font);background:#fafbfd;outline:none;transition:border .2s}
+.si:focus{border-color:var(--accent);background:#fff}
+.si-x{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:17px;cursor:pointer;color:var(--ink3)}
+
+.chk{width:30px;height:30px;border-radius:9px;border:2.5px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.15s;background:#fff;font-size:16px;color:#fff;font-weight:800}
+.chk.on{background:var(--green);border-color:var(--green)}
+
+.eqr{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid #f3f4f7}
+.eqr:first-child{border-top:none}
+
+.sigp{height:38px;border-radius:6px;border:1px solid var(--border)}
+
+.overlay{position:fixed;inset:0;z-index:7000;background:rgba(20,24,37,.5);display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;animation:fadeIn .2s}
+.modal{background:#fff;border-radius:18px;padding:24px;width:100%;max-width:480px;margin:40px 0;box-shadow:var(--shadow-lg);animation:slideUp .25s}
+.modal-w{max-width:620px}
+.mh{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.mt-t{font-weight:800;font-size:18px;color:var(--ink)}
+.mt-x{background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink3);line-height:1}
+
+.sig-ov{position:fixed;inset:0;z-index:9000;background:rgba(20,24,37,.55);display:flex;align-items:center;justify-content:center;padding:16px;animation:fadeIn .15s}
+.sig-box{background:#fff;border-radius:18px;padding:22px;width:100%;max-width:460px;box-shadow:0 20px 60px rgba(20,24,37,.3)}
+.sig-cv{width:100%;height:180px;border:2px solid var(--border);border-radius:var(--rs);background:#fafbfd;touch-action:none;cursor:crosshair;display:block}
+.sig-acts{display:flex;gap:8px;margin-top:14px}
+.sig-acts .btn{flex:1}.sig-acts .btn-pri{flex:2}
+
+.zchip{display:inline-flex;align-items:center;padding:7px 14px;background:var(--accent-lt);color:var(--accent);border-radius:8px;font-size:13px;font-weight:600}
+
+.empty{text-align:center;padding:44px 20px;color:var(--ink3)}
+.empty i{font-size:42px;display:block;margin-bottom:12px;font-style:normal}
+
+.adet{font-size:13px;margin:8px 0;padding:10px 14px;background:#fafbfd;border-radius:var(--rs)}
+
+/* Loading */
+.loading-screen{position:fixed;inset:0;z-index:10000;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .4s}
+.loading-screen.fade{opacity:0;pointer-events:none}
+.spinner{width:40px;height:40px;border:4px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Toast */
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 24px;border-radius:12px;font-size:13px;font-weight:600;z-index:9999;animation:toastIn .3s;box-shadow:var(--shadow-lg)}
+.toast.out{animation:toastOut .3s forwards}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+@keyframes toastOut{to{opacity:0;transform:translateX(-50%) translateY(20px)}}
+
+.fx{display:flex}.g4{gap:4px}.g6{gap:6px}.g8{gap:8px}.g10{gap:10px}
+.fw{flex-wrap:wrap}.jb{justify-content:space-between}.ac{align-items:center}.as{align-items:flex-start}
+.gr{flex:1}.s0{flex-shrink:0}.mw0{min-width:0}
+.oe{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mt8{margin-top:8px}.mt10{margin-top:10px}.mt12{margin-top:12px}
+.mb6{margin-bottom:6px}.mb10{margin-bottom:10px}.mb12{margin-bottom:12px}.mb14{margin-bottom:14px}
+.tar{text-align:right}.tac{text-align:center}
+.f11{font-size:11px}.f12{font-size:12px}.f13{font-size:13px}.f14{font-size:14px}.f22{font-size:22px}
+.w7{font-weight:700}.w8{font-weight:800}
+.cm{color:var(--ink3)}.c2{color:var(--ink2)}.cg{color:var(--green)}.co{color:var(--orange)}
+
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:400px){.header h1{font-size:17px}.tab-btn{font-size:12px;padding:8px 12px}.content{padding:12px}}
+</style>
+</head>
+<body>
+
+<!-- Loading Screen -->
+<div class="loading-screen" id="loadingScreen">
+  <div class="spinner"></div>
+  <div style="font-weight:700;color:var(--ink)">連接 Firebase 中...</div>
+  <div style="font-size:12px;color:var(--ink3)">Loading equipment data</div>
+</div>
+
+<div class="header">
+  <h1>⚕️ PT 設備管理系統</h1>
+  <div class="sub">Physical Therapy Equipment Management</div>
+  <div class="status"><div class="dot" id="syncDot"></div><span style="font-size:11px;opacity:.6" id="syncLabel">Syncing</span></div>
+</div>
+
+<div class="tab-bar">
+  <button class="tab-btn active" data-tab="daily">📋 每日檢查</button>
+  <button class="tab-btn" data-tab="maint">🔧 維修紀錄</button>
+  <button class="tab-btn" data-tab="transfer">🔄 轉移紀錄</button>
+  <button class="tab-btn" data-tab="equip">📦 設備管理</button>
+  <button class="tab-btn" data-tab="settings">⚙️ 設定</button>
+</div>
+
+<div class="content">
+  <!-- DAILY -->
+  <div id="tab-daily" class="tab-content">
+    <div class="card">
+      <div class="fx g8 ac fw">
+        <div class="gr" style="min-width:160px">
+          <label class="fl">選擇日期</label>
+          <input type="date" id="dailyDate" class="fi" style="margin-bottom:0">
+        </div>
+        <div class="tar">
+          <div class="f12 cm">簽名狀態</div>
+          <div id="dailySigStatus" class="f22 w8 co">0/0</div>
+        </div>
+      </div>
+    </div>
+    <div class="sw">
+      <span class="si-icon">🔍</span>
+      <input type="text" id="dailySearch" class="si" placeholder="搜尋設備名稱 / Asset ID...">
+      <button class="si-x hidden" id="dailySearchX">✕</button>
+    </div>
+    <div id="dailyZoneList"></div>
+    <button class="btn btn-pri btn-full mt8" style="padding:14px" onclick="exportMonthly()">
+      📊 匯出 <span id="exportMonth"></span> 月份報告 (Excel)
+    </button>
+  </div>
+
+  <!-- MAINT -->
+  <div id="tab-maint" class="tab-content hidden">
+    <button class="btn btn-red btn-full mb14" style="padding:14px" onclick="openMaintForm()">+ 新增維修紀錄</button>
+    <div id="maintList"></div>
+  </div>
+
+  <!-- TRANSFER -->
+  <div id="tab-transfer" class="tab-content hidden">
+    <button class="btn btn-blu btn-full mb14" style="padding:14px" onclick="openTransferForm()">+ 新增轉移紀錄</button>
+    <div id="transferList"></div>
+  </div>
+
+  <!-- EQUIP -->
+  <div id="tab-equip" class="tab-content hidden">
+    <div class="fx g8 fw mb14">
+      <button class="btn btn-pri gr" style="min-width:100px" onclick="openEquipForm()">+ 新增設備</button>
+      <button class="btn btn-acc gr" style="min-width:100px" onclick="importCSV()">📄 匯入 CSV</button>
+      <button class="btn btn-gho gr" style="min-width:100px" onclick="downloadTemplate()">⬇ 下載模板</button>
+    </div>
+    <div class="sw">
+      <span class="si-icon">🔍</span>
+      <input type="text" id="equipSearch" class="si" placeholder="搜尋設備名稱 / Asset ID...">
+      <button class="si-x hidden" id="equipSearchX">✕</button>
+    </div>
+    <div id="equipCount" class="f13 cm mb10"></div>
+    <div id="equipList"></div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div id="tab-settings" class="tab-content hidden">
+    <div class="card">
+      <div class="w7 f14 mb12">📍 Zone 管理</div>
+      <div id="settingsZoneChips" class="fx g8 fw mb12"></div>
+      <button class="btn btn-pri btn-full" onclick="openZoneManager()">管理 Zones</button>
+    </div>
+    <div class="card">
+      <div class="w7 f14 mb12">📊 匯出報告</div>
+      <div class="f13 cm mb12">匯出選定月份的完整紀錄至 Excel</div>
+      <input type="month" id="settingsMonth" class="fi">
+      <button class="btn btn-acc btn-full" onclick="exportMonthly()">📥 匯出 Excel</button>
+    </div>
+    <div class="card">
+      <div class="w7 f14 mb12">📄 CSV 工具</div>
+      <div class="fx g8">
+        <button class="btn btn-gho gr" onclick="downloadTemplate()">⬇ 下載空白模板</button>
+        <button class="btn btn-pri gr" onclick="importCSV()">📄 匯入 CSV</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="w7 f14 mb6" style="color:var(--red)">⚠️ 清除所有設備</div>
+      <div class="f13 cm mb12">此操作不可還原，會刪除所有設備資料</div>
+      <button class="btn btn-red btn-full" onclick="clearAllData()">清除全部資料</button>
+    </div>
+    <div class="tac" style="padding:24px;color:var(--ink3);font-size:11px">
+      PT Equipment Management System v3.0 · Firebase Cloud<br>Built for Physical Therapy Department
+    </div>
+  </div>
+</div>
+
+<div id="modalBox"></div>
+<div id="sigBox"></div>
+
+<script>
+// ═════════════════════════════════════════════════════════════
+//  FIREBASE INIT
+// ═════════════════════════════════════════════════════════════
+firebase.initializeApp({
+  apiKey: "AIzaSyAAhB67u8MOs4GStBg46M-FgTfCLms_mB8",
+  authDomain: "pca-machine-checking.firebaseapp.com",
+  projectId: "pca-machine-checking",
+  storageBucket: "pca-machine-checking.firebasestorage.app",
+  messagingSenderId: "132305266316",
+  appId: "1:132305266316:web:043bc5f5db66644d52bda9"
+});
+const db = firebase.firestore();
+
+// Enable offline persistence so it works without internet too
+db.enablePersistence({ synchronizeTabs: true }).catch(e => {
+  console.warn("Persistence unavailable:", e.code);
+});
+
+/*
+  Firestore Structure:
+  ├── config/zones          → { list: ["Zone A", ...] }
+  ├── equipment/{id}        → { zone, name, commonName, location, assetId, serialNumber }
+  ├── maintenance/{id}      → { equipmentId, date, action, signature, completed, completedDate }
+  ├── transfers/{id}        → { equipmentId, sendDate, destination, signature, returned, returnedDate }
+  ├── dailyChecks/{date}    → { checks: { eqId: true, ... } }
+  └── signatures/{date}     → { "Zone A": { img, time }, ... }
+*/
+
+// ═════════════════════════════════════════════════════════════
+//  LOCAL STATE (populated by Firestore listeners)
+// ═════════════════════════════════════════════════════════════
+const DEFAULT_ZONES = ["Zone A","Zone B","Zone C","Consultation Room","4/F Storeroom","7/F IRA","8/F IRA"];
+let D = { zones: [...DEFAULT_ZONES], equipment: [], maintenance: [], transfers: [] };
+let checksCache = {};  // { "YYYY-MM-DD": { eqId: true } }
+let sigsCache = {};    // { "YYYY-MM-DD": { zone: { img, time } } }
+let loadCount = 0;
+const LOAD_TARGET = 4; // zones, equipment, maintenance, transfers
+
+// ═════════════════════════════════════════════════════════════
+//  HELPERS
+// ═════════════════════════════════════════════════════════════
+function uid(){return Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4)}
+function fmt(d){if(!d)return"—";const p=d.split("-");return p[2]+"/"+p[1]+"/"+p[0]}
+function todayStr(){return new Date().toISOString().slice(0,10)}
+function esc(s){if(!s)return"";const d=document.createElement("div");d.textContent=s;return d.innerHTML}
+function $(id){return document.getElementById(id)}
+function getDate(){return $("dailyDate").value||todayStr()}
+function getMonth(){return getDate().slice(0,7)}
+function setSync(ok){$("syncDot").className=ok?"dot on":"dot";$("syncLabel").textContent=ok?"Connected":"Syncing"}
+
+function toast(msg){
+  const el=document.createElement("div");el.className="toast";el.textContent=msg;
+  document.body.appendChild(el);
+  setTimeout(()=>{el.className="toast out";setTimeout(()=>el.remove(),300)},2200);
+}
+
+function markLoaded(){
+  loadCount++;
+  if(loadCount>=LOAD_TARGET){
+    const ls=$("loadingScreen");
+    ls.classList.add("fade");
+    setTimeout(()=>ls.style.display="none",500);
+    setSync(true);
+    setupDateListeners(getDate());
+  }
+}
+
+// ═════════════════════════════════════════════════════════════
+//  FIRESTORE REAL-TIME LISTENERS
+// ═════════════════════════════════════════════════════════════
+
+// 1) Zones
+db.collection("config").doc("zones").onSnapshot(doc => {
+  if(doc.exists){
+    D.zones = doc.data().list || DEFAULT_ZONES;
+  } else {
+    // First-time init: seed defaults
+    db.collection("config").doc("zones").set({ list: DEFAULT_ZONES });
+  }
+  markLoaded();
+  renderAll();
+}, err => { console.error("Zones listener:", err); markLoaded(); });
+
+// 2) Equipment
+db.collection("equipment").orderBy("zone").onSnapshot(snap => {
+  D.equipment = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  markLoaded();
+  renderAll();
+}, err => { console.error("Equipment listener:", err); markLoaded(); });
+
+// 3) Maintenance
+db.collection("maintenance").orderBy("date","desc").onSnapshot(snap => {
+  D.maintenance = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  markLoaded();
+  renderAll();
+}, err => { console.error("Maintenance listener:", err); markLoaded(); });
+
+// 4) Transfers
+db.collection("transfers").orderBy("sendDate","desc").onSnapshot(snap => {
+  D.transfers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  markLoaded();
+  renderAll();
+}, err => { console.error("Transfers listener:", err); markLoaded(); });
+
+// 5) Date-specific listeners (dailyChecks & signatures for selected date)
+let dateUnsubs = { checks: null, sigs: null };
+
+function setupDateListeners(date){
+  if(dateUnsubs.checks) dateUnsubs.checks();
+  if(dateUnsubs.sigs) dateUnsubs.sigs();
+
+  dateUnsubs.checks = db.collection("dailyChecks").doc(date).onSnapshot(doc => {
+    checksCache[date] = doc.exists ? (doc.data().checks || {}) : {};
+    renderDaily();
+  });
+
+  dateUnsubs.sigs = db.collection("signatures").doc(date).onSnapshot(doc => {
+    sigsCache[date] = doc.exists ? doc.data() : {};
+    renderDaily();
+  });
+}
+
+// ═════════════════════════════════════════════════════════════
+//  TABS
+// ═════════════════════════════════════════════════════════════
+let curTab = "daily";
+document.querySelectorAll(".tab-btn").forEach(b => {
+  b.addEventListener("click", () => {
+    curTab = b.dataset.tab;
+    document.querySelectorAll(".tab-btn").forEach(x => x.classList.remove("active"));
+    b.classList.add("active");
+    document.querySelectorAll(".tab-content").forEach(c => c.classList.add("hidden"));
+    $("tab-" + curTab).classList.remove("hidden");
+    renderAll();
+  });
+});
+
+// ═════════════════════════════════════════════════════════════
+//  COMPUTED
+// ═════════════════════════════════════════════════════════════
+function equipByZone(){
+  const m = {};
+  D.zones.forEach(z => { m[z] = [] });
+  D.equipment.forEach(e => { if(!m[e.zone]) m[e.zone] = []; m[e.zone].push(e) });
+  return m;
+}
+function activeMaintIds(){ return new Set(D.maintenance.filter(m => !m.completed).map(m => m.equipmentId)) }
+function activeTransferIds(){ return new Set(D.transfers.filter(t => !t.returned).map(t => t.equipmentId)) }
+
+// ═════════════════════════════════════════════════════════════
+//  MODAL (z-7000) — #modalBox
+// ═════════════════════════════════════════════════════════════
+function openModal(title, body, wide){
+  $("modalBox").innerHTML = `
+    <div class="overlay" onclick="closeModal()">
+      <div class="modal ${wide?'modal-w':''}" onclick="event.stopPropagation()">
+        <div class="mh"><div class="mt-t">${title}</div><button class="mt-x" onclick="closeModal()">✕</button></div>
+        <div id="mBody">${body}</div>
+      </div>
+    </div>`;
+}
+function closeModal(){ $("modalBox").innerHTML = "" }
+
+// ═════════════════════════════════════════════════════════════
+//  SIGNATURE PAD (z-9000) — #sigBox — Promise-based
+// ═════════════════════════════════════════════════════════════
+let _sigCv, _sigCx, _sigDr = false, _sigLt = null, _sigRes = null;
+
+function openSignPad(label){
+  return new Promise(resolve => {
+    _sigRes = resolve;
+    $("sigBox").innerHTML = `
+      <div class="sig-ov" onclick="_sigCancel()">
+        <div class="sig-box" onclick="event.stopPropagation()">
+          <div class="w7 f14" style="margin-bottom:3px">${esc(label)}</div>
+          <div class="f12 cm mb12">請在下方空白處簽名</div>
+          <canvas id="sigCv" class="sig-cv"></canvas>
+          <div class="sig-acts">
+            <button class="btn btn-gho" onclick="_sigClear()">清除</button>
+            <button class="btn btn-gho" onclick="_sigCancel()">取消</button>
+            <button class="btn btn-pri" onclick="_sigSave()">確認簽名</button>
+          </div>
+        </div>
+      </div>`;
+    _sigCv = $("sigCv"); _sigCx = _sigCv.getContext("2d");
+    _sigCv.width = _sigCv.offsetWidth*2; _sigCv.height = _sigCv.offsetHeight*2;
+    _sigCx.scale(2,2); _sigCx.strokeStyle="#141825"; _sigCx.lineWidth=2; _sigCx.lineCap="round"; _sigCx.lineJoin="round";
+    _sigDr=false; _sigLt=null;
+    _sigCv.addEventListener("mousedown",_sS); _sigCv.addEventListener("mousemove",_sM);
+    _sigCv.addEventListener("mouseup",_sE); _sigCv.addEventListener("mouseleave",_sE);
+    _sigCv.addEventListener("touchstart",_sS,{passive:false}); _sigCv.addEventListener("touchmove",_sM,{passive:false}); _sigCv.addEventListener("touchend",_sE);
+  });
+}
+function _sP(e){const r=_sigCv.getBoundingClientRect();const t=e.touches?e.touches[0]:e;return{x:t.clientX-r.left,y:t.clientY-r.top}}
+function _sS(e){e.preventDefault();_sigDr=true;_sigLt=_sP(e)}
+function _sM(e){if(!_sigDr)return;e.preventDefault();const p=_sP(e);_sigCx.beginPath();_sigCx.moveTo(_sigLt.x,_sigLt.y);_sigCx.lineTo(p.x,p.y);_sigCx.stroke();_sigLt=p}
+function _sE(){_sigDr=false;_sigLt=null}
+function _sigClear(){_sigCx.clearRect(0,0,_sigCv.width,_sigCv.height)}
+function _sigCancel(){$("sigBox").innerHTML="";if(_sigRes){_sigRes(null);_sigRes=null}}
+function _sigSave(){
+  const px=_sigCx.getImageData(0,0,_sigCv.width,_sigCv.height).data;
+  let blank=true;for(let i=3;i<px.length;i+=4){if(px[i]>0){blank=false;break}}
+  if(blank){alert("請先簽名！");return}
+  const img=_sigCv.toDataURL("image/png");
+  $("sigBox").innerHTML="";
+  if(_sigRes){_sigRes(img);_sigRes=null}
+}
+
+// ═════════════════════════════════════════════════════════════
+//  RENDER: DAILY
+// ═════════════════════════════════════════════════════════════
+function renderDaily(){
+  const date=getDate(), checks=checksCache[date]||{}, sigs=sigsCache[date]||{};
+  const bz=equipByZone(), mIds=activeMaintIds(), tIds=activeTransferIds();
+  const sv=($("dailySearch").value||"").toLowerCase().trim();
+
+  const sc=D.zones.filter(z=>sigs[z]).length;
+  const el=$("dailySigStatus");
+  el.textContent=sc+"/"+D.zones.length;
+  el.className=sc===D.zones.length&&D.zones.length>0?"f22 w8 cg":"f22 w8 co";
+  $("exportMonth").textContent=getMonth();
+  $("dailySearchX").classList.toggle("hidden",!sv);
+
+  let h="";
+  D.zones.forEach(zone=>{
+    let eq=bz[zone]||[];
+    if(sv)eq=eq.filter(e=>e.name.toLowerCase().includes(sv)||e.commonName.toLowerCase().includes(sv)||e.assetId.toLowerCase().includes(sv));
+    if(sv&&!eq.length)return;
+    const allC=eq.length>0&&eq.every(e=>checks[e.id]);
+    const signed=sigs[zone];
+
+    h+=`<div class="card ${signed?'bdr-green':'bdr-gray'}">`;
+    h+=`<div class="fx jb ac mb12"><div><div class="w8 f14">${esc(zone)}</div><div class="f12 cm">${eq.length} 件設備</div></div>
+      <div>${signed?'<span class="badge bg-green">✓ 已簽</span>':'<span class="badge bg-orange">未完成</span>'}</div></div>`;
+
+    if(eq.length>0){
+      h+=`<button class="btn btn-gho btn-full mb10" style="padding:11px;font-size:13px;${allC?'color:var(--green)':''}" onclick="checkAllZone('${esc(zone)}')">
+        ${allC?'✓ 全部已檢查 — 取消全選':'☐ 一鍵全選 Check All'}</button>`;
+    }
+
+    eq.forEach(e=>{
+      const c=!!checks[e.id], hm=mIds.has(e.id), ht=tIds.has(e.id);
+      h+=`<div class="eqr">
+        <div class="chk ${c?'on':''}" onclick="toggleChk('${e.id}')">${c?'✓':''}</div>
+        <div class="gr mw0">
+          <div class="fx ac g6 fw" style="font-weight:600;font-size:13px">
+            <span class="oe">${esc(e.name)}</span>
+            ${hm?'<span class="badge bg-red" style="font-size:10px">🔧 維修中</span>':''}
+            ${ht?'<span class="badge bg-blue" style="font-size:10px">🔄 轉移中</span>':''}
+          </div>
+          <div class="f11 cm">${esc(e.commonName)} · ${esc(e.assetId)}</div>
+        </div>
+      </div>`;
+    });
+
+    if(eq.length>0&&!signed){
+      h+=`<button class="btn btn-pri btn-full mt10" onclick="signZone('${esc(zone)}')">✍️ 簽名確認 ${esc(zone)}</button>`;
+    }
+    if(signed){
+      h+=`<div class="fx ac g8 mt10" style="padding:10px;background:var(--green-lt);border-radius:var(--rs)">
+        <img src="${signed.img}" class="sigp"><span class="f12 w7 cg">已簽名確認</span></div>`;
+    }
+    h+=`</div>`;
+  });
+
+  if(!D.equipment.length){
+    h=`<div class="card"><div class="empty"><i>📦</i><div>尚無設備資料</div><div class="f12" style="margin-top:4px">請到「設備管理」新增設備或匯入 CSV</div></div></div>`;
+  }
+  $("dailyZoneList").innerHTML=h;
+}
+
+// ── Daily Check actions → Firestore ──
+function checkAllZone(zone){
+  const date=getDate();
+  const checks={...(checksCache[date]||{})};
+  const eq=(equipByZone()[zone]||[]);
+  const all=eq.every(e=>checks[e.id]);
+  eq.forEach(e=>{if(all)delete checks[e.id];else checks[e.id]=true});
+  // Optimistic local update
+  checksCache[date]=checks;
+  renderDaily();
+  // Write to Firestore
+  db.collection("dailyChecks").doc(date).set({checks},{merge:false}).catch(e=>console.error(e));
+}
+
+function toggleChk(id){
+  const date=getDate();
+  const checks={...(checksCache[date]||{})};
+  if(checks[id])delete checks[id];else checks[id]=true;
+  checksCache[date]=checks;
+  renderDaily();
+  db.collection("dailyChecks").doc(date).set({checks},{merge:false}).catch(e=>console.error(e));
+}
+
+async function signZone(zone){
+  const img=await openSignPad("簽名確認 — "+zone+" · "+fmt(getDate()));
+  if(!img)return;
+  const date=getDate();
+  // Firestore merge: only update this zone's field
+  db.collection("signatures").doc(date).set(
+    {[zone]:{img,time:new Date().toISOString()}},
+    {merge:true}
+  ).then(()=>toast("已簽名 ✓")).catch(e=>console.error(e));
+}
+
+// ═════════════════════════════════════════════════════════════
+//  RENDER: MAINTENANCE
+// ═════════════════════════════════════════════════════════════
+function renderMaint(){
+  if(!D.maintenance.length){
+    $("maintList").innerHTML=`<div class="card"><div class="empty"><i>🔧</i><div>暫無維修紀錄</div></div></div>`;return;
+  }
+  let h="";
+  D.maintenance.forEach(m=>{
+    const eq=D.equipment.find(e=>e.id===m.equipmentId);
+    h+=`<div class="card ${m.completed?'bdr-green dim':'bdr-red'}">
+      <div class="fx jb as mb6">
+        <div><div class="w7 f14">${esc(eq?.name||'未知設備')}</div><div class="f12 cm">${esc(eq?.assetId||'')} · ${esc(eq?.zone||'')}</div></div>
+        <span class="badge ${m.completed?'bg-green':'bg-red'}">${m.completed?'已完成':'維修中'}</span>
+      </div>
+      <div class="adet"><strong>Action:</strong> ${esc(m.action)}</div>
+      <div class="fx jb ac f12 cm"><span>日期: ${fmt(m.date)}</span>${m.completedDate?'<span>完成: '+fmt(m.completedDate)+'</span>':''}</div>
+      ${m.signature?'<div class="mt8"><img src="'+m.signature+'" class="sigp"></div>':''}
+      ${!m.completed?'<button class="btn btn-grn btn-full mt10" onclick="completeMaint(\''+m.id+'\')">✓ 維修完成</button>':''}
+    </div>`;
+  });
+  $("maintList").innerHTML=h;
+}
+
+function completeMaint(id){
+  db.collection("maintenance").doc(id).update({
+    completed:true, completedDate:todayStr()
+  }).then(()=>toast("維修完成 ✓")).catch(e=>console.error(e));
+}
+
+// ═════════════════════════════════════════════════════════════
+//  RENDER: TRANSFERS
+// ═════════════════════════════════════════════════════════════
+function renderTransfers(){
+  if(!D.transfers.length){
+    $("transferList").innerHTML=`<div class="card"><div class="empty"><i>🔄</i><div>暫無轉移紀錄</div></div></div>`;return;
+  }
+  let h="";
+  D.transfers.forEach(t=>{
+    const eq=D.equipment.find(e=>e.id===t.equipmentId);
+    h+=`<div class="card ${t.returned?'bdr-green dim':'bdr-blue'}">
+      <div class="fx jb as mb6">
+        <div><div class="w7 f14">${esc(eq?.name||'未知設備')}</div><div class="f12 cm">${esc(eq?.assetId||'')} · ${esc(eq?.zone||'')}</div></div>
+        <span class="badge ${t.returned?'bg-green':'bg-blue'}">${t.returned?'已歸還':'轉移中'}</span>
+      </div>
+      <div class="adet"><strong>目的地:</strong> ${esc(t.destination)}</div>
+      <div class="fx jb ac f12 cm"><span>送出: ${fmt(t.sendDate)}</span>${t.returnedDate?'<span>歸還: '+fmt(t.returnedDate)+'</span>':''}</div>
+      ${t.signature?'<div class="mt8"><img src="'+t.signature+'" class="sigp"></div>':''}
+      ${!t.returned?'<button class="btn btn-grn btn-full mt10" onclick="returnTransfer(\''+t.id+'\')">✓ 已歸還</button>':''}
+    </div>`;
+  });
+  $("transferList").innerHTML=h;
+}
+
+function returnTransfer(id){
+  db.collection("transfers").doc(id).update({
+    returned:true, returnedDate:todayStr()
+  }).then(()=>toast("已歸還 ✓")).catch(e=>console.error(e));
+}
+
+// ═════════════════════════════════════════════════════════════
+//  RENDER: EQUIPMENT
+// ═════════════════════════════════════════════════════════════
+function renderEquip(){
+  const sv=($("equipSearch").value||"").toLowerCase().trim();
+  $("equipSearchX").classList.toggle("hidden",!sv);
+  let list=D.equipment;
+  if(sv)list=list.filter(e=>e.name.toLowerCase().includes(sv)||e.commonName.toLowerCase().includes(sv)||e.assetId.toLowerCase().includes(sv));
+  $("equipCount").textContent=`共 ${list.length} 件設備${sv?' (搜尋中)':''}`;
+  if(!list.length&&!D.equipment.length){
+    $("equipList").innerHTML=`<div class="card"><div class="empty"><i>📦</i><div>開始新增設備或匯入 CSV 吧！</div></div></div>`;return;
+  }
+  let h="";
+  list.forEach(eq=>{
+    h+=`<div class="card"><div class="fx jb as">
+      <div class="gr mw0">
+        <div class="w7 f14">${esc(eq.name)}</div>
+        <div class="f12 cm" style="margin-top:2px">${esc(eq.commonName)}</div>
+        <div class="fx g6 fw mt8"><span class="badge bg-ink">${esc(eq.zone)}</span><span class="badge bg-gray">${esc(eq.location)}</span></div>
+        <div class="f11 cm" style="margin-top:6px">Asset: ${esc(eq.assetId)} · SN: ${esc(eq.serialNumber)}</div>
+      </div>
+      <div class="fx g4 s0">
+        <button class="btn btn-gho btn-sm" onclick="openEquipForm('${eq.id}')">✏️</button>
+        <button class="btn btn-sm" style="background:var(--red-lt);color:var(--red)" onclick="deleteEquip('${eq.id}')">🗑</button>
+      </div>
+    </div></div>`;
+  });
+  $("equipList").innerHTML=h;
+}
+
+function deleteEquip(id){
+  if(!confirm("確定刪除此設備？"))return;
+  db.collection("equipment").doc(id).delete().then(()=>toast("已刪除")).catch(e=>console.error(e));
+}
+
+// ═════════════════════════════════════════════════════════════
+//  RENDER: SETTINGS
+// ═════════════════════════════════════════════════════════════
+function renderSettings(){
+  let h="";D.zones.forEach(z=>{h+=`<span class="zchip">${esc(z)}</span>`});
+  $("settingsZoneChips").innerHTML=h;
+  $("settingsMonth").value=getMonth();
+}
+
+function renderAll(){ renderDaily(); renderMaint(); renderTransfers(); renderEquip(); renderSettings() }
+
+// ═════════════════════════════════════════════════════════════
+//  EQUIPMENT FORM → Firestore
+// ═════════════════════════════════════════════════════════════
+function openEquipForm(editId){
+  const eq=editId?D.equipment.find(e=>e.id===editId):null;
+  const isE=!!eq;
+  const zo=D.zones.map(z=>`<option value="${esc(z)}"${eq&&eq.zone===z?' selected':''}>${esc(z)}</option>`).join('');
+  openModal(isE?"編輯設備":"新增設備",`
+    <label class="fl">Zone</label><select id="eqZone" class="fsel">${zo}</select>
+    <label class="fl">名稱</label><input class="fi" id="eqName" placeholder="e.g. Ultrasound Therapy Unit" value="${esc(eq?.name||'')}">
+    <label class="fl">Common Name</label><input class="fi" id="eqCommon" placeholder="e.g. 超聲波治療儀" value="${esc(eq?.commonName||'')}">
+    <label class="fl">Location</label><input class="fi" id="eqLoc" placeholder="e.g. Room 3" value="${esc(eq?.location||'')}">
+    <label class="fl">Asset ID</label><input class="fi" id="eqAsset" placeholder="e.g. PT-2024-001" value="${esc(eq?.assetId||'')}">
+    <label class="fl">Serial Number</label><input class="fi" id="eqSerial" placeholder="e.g. SN123456" value="${esc(eq?.serialNumber||'')}">
+    <button class="btn btn-pri btn-full mt8" onclick="saveEquip('${editId||''}')">${isE?'儲存修改':'新增設備'}</button>`);
+}
+
+function saveEquip(editId){
+  const n=$("eqName").value.trim(), a=$("eqAsset").value.trim();
+  if(!n||!a){alert("請填寫名稱和Asset ID");return}
+  const obj={zone:$("eqZone").value,name:n,commonName:$("eqCommon").value.trim(),location:$("eqLoc").value.trim(),assetId:a,serialNumber:$("eqSerial").value.trim()};
+  const p = editId
+    ? db.collection("equipment").doc(editId).update(obj)
+    : db.collection("equipment").doc(uid()).set(obj);
+  p.then(()=>{toast(editId?"已更新 ✓":"已新增 ✓");closeModal()}).catch(e=>{console.error(e);alert("儲存失敗: "+e.message)});
+}
+
+// ═════════════════════════════════════════════════════════════
+//  MAINTENANCE FORM → Firestore
+// ═════════════════════════════════════════════════════════════
+let _mSig = null;
+
+function openMaintForm(){
+  if(!D.equipment.length){alert("請先新增設備");return}
+  _mSig=null; _renderMF();
+}
+
+function _renderMF(eqV,dtV,actV){
+  const opts=D.equipment.map(e=>`<option value="${e.id}"${e.id===eqV?' selected':''}>${esc(e.name)} — ${esc(e.assetId)} (${esc(e.zone)})</option>`).join('');
+  const sigH=_mSig
+    ?`<div class="mb12"><div class="fl">助理簽名 ✓</div><img src="${_mSig}" class="sigp"></div>`
+    :`<button class="btn btn-gho btn-full mb12" onclick="_mOpenSig()">✍️ 助理簽名</button>`;
+  openModal("新增維修紀錄",`
+    <label class="fl">選擇設備</label><select id="mEq" class="fsel">${opts}</select>
+    <label class="fl">日期</label><input type="date" id="mDate" class="fi" value="${dtV||getDate()}">
+    <label class="fl">Action (維修內容)</label><input class="fi" id="mAction" placeholder="e.g. 更換探頭" value="${esc(actV||'')}">
+    <div id="mSigA">${sigH}</div>
+    <button class="btn btn-red btn-full" onclick="_mSave()">確認新增維修紀錄</button>`);
+}
+
+async function _mOpenSig(){
+  const eV=$("mEq").value,dV=$("mDate").value,aV=$("mAction").value;
+  const img=await openSignPad("助理簽名 — 維修紀錄");
+  if(img)_mSig=img;
+  _renderMF(eV,dV,aV);
+}
+
+function _mSave(){
+  const action=$("mAction").value.trim();
+  if(!action){alert("請填寫維修內容");return}
+  if(!_mSig){alert("請先簽名");return}
+  const rec={equipmentId:$("mEq").value,date:$("mDate").value,action,signature:_mSig,completed:false,completedDate:null};
+  db.collection("maintenance").doc(uid()).set(rec)
+    .then(()=>{toast("維修紀錄已新增");_mSig=null;closeModal()})
+    .catch(e=>{console.error(e);alert("儲存失敗: "+e.message)});
+}
+
+// ═════════════════════════════════════════════════════════════
+//  TRANSFER FORM → Firestore
+// ═════════════════════════════════════════════════════════════
+let _tSig = null;
+
+function openTransferForm(){
+  if(!D.equipment.length){alert("請先新增設備");return}
+  _tSig=null; _renderTF();
+}
+
+function _renderTF(eqV,dtV,dstV){
+  const opts=D.equipment.map(e=>`<option value="${e.id}"${e.id===eqV?' selected':''}>${esc(e.name)} — ${esc(e.assetId)} (${esc(e.zone)})</option>`).join('');
+  const sigH=_tSig
+    ?`<div class="mb12"><div class="fl">助理簽名 ✓</div><img src="${_tSig}" class="sigp"></div>`
+    :`<button class="btn btn-gho btn-full mb12" onclick="_tOpenSig()">✍️ 助理簽名</button>`;
+  openModal("新增轉移紀錄",`
+    <label class="fl">選擇設備</label><select id="tEq" class="fsel">${opts}</select>
+    <label class="fl">送出日期</label><input type="date" id="tDate" class="fi" value="${dtV||getDate()}">
+    <label class="fl">目的地</label><input class="fi" id="tDest" placeholder="e.g. 9/F Ward B" value="${esc(dstV||'')}">
+    <div id="tSigA">${sigH}</div>
+    <button class="btn btn-blu btn-full" onclick="_tSave()">確認新增轉移紀錄</button>`);
+}
+
+async function _tOpenSig(){
+  const eV=$("tEq").value,dV=$("tDate").value,dsV=$("tDest").value;
+  const img=await openSignPad("助理簽名 — 轉移紀錄");
+  if(img)_tSig=img;
+  _renderTF(eV,dV,dsV);
+}
+
+function _tSave(){
+  const dest=$("tDest").value.trim();
+  if(!dest){alert("請填寫目的地");return}
+  if(!_tSig){alert("請先簽名");return}
+  const rec={equipmentId:$("tEq").value,sendDate:$("tDate").value,destination:dest,signature:_tSig,returned:false,returnedDate:null};
+  db.collection("transfers").doc(uid()).set(rec)
+    .then(()=>{toast("轉移紀錄已新增");_tSig=null;closeModal()})
+    .catch(e=>{console.error(e);alert("儲存失敗: "+e.message)});
+}
+
+// ═════════════════════════════════════════════════════════════
+//  ZONE MANAGER → Firestore
+// ═════════════════════════════════════════════════════════════
+function saveZones(){ db.collection("config").doc("zones").set({list:D.zones}).catch(e=>console.error(e)) }
+
+function openZoneManager(){ _renderZM() }
+function _renderZM(){
+  const bz=equipByZone();
+  let rows="";
+  D.zones.forEach((z,i)=>{
+    rows+=`<div class="fx ac g8 mb10">
+      <div class="gr" style="padding:9px 12px;background:#f5f6f9;border-radius:8px;font-size:13px;font-weight:500">${esc(z)}</div>
+      <button class="btn btn-gho btn-sm" onclick="editZone(${i})">✏️</button>
+      <button class="btn btn-sm" style="background:var(--red-lt);color:var(--red)" onclick="deleteZone(${i})">🗑</button>
+    </div>`;
+  });
+  openModal("管理 Zones",`${rows}
+    <div class="fx g8 mt12">
+      <input class="fi" id="newZN" placeholder="新增 Zone 名稱" style="margin-bottom:0;flex:1">
+      <button class="btn btn-pri" onclick="addZone()">+ 新增</button>
+    </div>`);
+}
+
+function addZone(){
+  const n=$("newZN").value.trim();
+  if(!n||D.zones.includes(n))return;
+  D.zones.push(n); saveZones(); _renderZM();
+}
+
+function editZone(i){
+  const o=D.zones[i], n=prompt("修改 Zone 名稱:",o);
+  if(!n||!n.trim()||n.trim()===o)return;
+  const t=n.trim();
+  D.zones[i]=t; saveZones();
+  // Update all equipment in this zone
+  D.equipment.filter(e=>e.zone===o).forEach(e=>{
+    db.collection("equipment").doc(e.id).update({zone:t}).catch(err=>console.error(err));
+  });
+  _renderZM();
+}
+
+function deleteZone(i){
+  const bz=equipByZone(),z=D.zones[i];
+  if(bz[z]&&bz[z].length){alert(`此 Zone 尚有 ${bz[z].length} 件設備，請先移除或轉移`);return}
+  D.zones.splice(i,1); saveZones(); _renderZM();
+}
+
+// ═════════════════════════════════════════════════════════════
+//  CSV IMPORT / TEMPLATE
+// ═════════════════════════════════════════════════════════════
+function parseCSVLine(line){
+  const r=[];let c="",q=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(q){if(ch==='"'&&line[i+1]==='"'){c+='"';i++}else if(ch==='"')q=false;else c+=ch}
+    else{if(ch==='"')q=true;else if(ch===','){r.push(c);c=""}else c+=ch}
+  }
+  r.push(c);return r;
+}
+
+async function importCSV(){
+  const inp=document.createElement("input");inp.type="file";inp.accept=".csv";
+  inp.onchange=async e=>{
+    const f=e.target.files[0];if(!f)return;
+    const text=await f.text();
+    const lines=text.split(/\r?\n/).filter(l=>l.trim());
+    if(lines.length<2){alert("CSV 無資料行");return}
+    const hd=lines[0].replace(/[\ufeff]/g,"").split(",").map(h=>h.trim().toLowerCase());
+    const fi=(...ns)=>hd.findIndex(h=>ns.includes(h));
+    const zI=fi("zone"),nI=fi("名稱","name"),cI=fi("common name","commonname","common_name");
+    const lI=fi("location"),aI=fi("asset id","assetid","asset_id"),sI=fi("serial number","serialnumber","serial_number");
+    if([zI,nI,cI,lI,aI,sI].some(x=>x<0)){
+      alert("CSV 欄位不符，請確保包含:\nZone, 名稱, Common Name, Location, Asset ID, Serial Number");return;
+    }
+    const items=[];
+    for(let i=1;i<lines.length;i++){
+      const cols=parseCSVLine(lines[i]);if(cols.length<6)continue;
+      items.push({zone:cols[zI].trim(),name:cols[nI].trim(),commonName:cols[cI].trim(),location:cols[lI].trim(),assetId:cols[aI].trim(),serialNumber:cols[sI].trim()});
+    }
+    if(!items.length){alert("無有效資料");return}
+
+    // Batch write (max 500 per batch)
+    for(let start=0;start<items.length;start+=450){
+      const batch=db.batch();
+      const chunk=items.slice(start,start+450);
+      chunk.forEach(item=>{
+        const ref=db.collection("equipment").doc(uid());
+        batch.set(ref,item);
+      });
+      await batch.commit();
+    }
+
+    // Auto-add new zones
+    const newZones=[...new Set(items.map(i=>i.zone))].filter(z=>!D.zones.includes(z));
+    if(newZones.length){
+      D.zones.push(...newZones);
+      saveZones();
+    }
+    toast(`成功匯入 ${items.length} 件設備！`);
+  };
+  inp.click();
+}
+
+function downloadTemplate(){
+  const csv="\ufeffZone,名稱,Common Name,Location,Asset ID,Serial Number\n";
+  const b=new Blob([csv],{type:"text/csv;charset=utf-8;"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(b);
+  a.download="equipment_template.csv";a.click();URL.revokeObjectURL(a.href);
+}
+
+// ═════════════════════════════════════════════════════════════
+//  EXCEL EXPORT (fetches month data from Firestore)
+// ═════════════════════════════════════════════════════════════
+async function exportMonthly(){
+  const mo=getMonth(),yr=+mo.slice(0,4),mn=+mo.slice(5,7),days=new Date(yr,mn,0).getDate();
+  toast("正在匯出...");
+
+  // Fetch all dailyChecks & signatures for this month
+  const startD=mo+"-01", endD=mo+"-31";
+  const [checksSnap,sigsSnap]=await Promise.all([
+    db.collection("dailyChecks").where(firebase.firestore.FieldPath.documentId(),">=",startD)
+      .where(firebase.firestore.FieldPath.documentId(),"<=",endD).get(),
+    db.collection("signatures").where(firebase.firestore.FieldPath.documentId(),">=",startD)
+      .where(firebase.firestore.FieldPath.documentId(),"<=",endD).get()
+  ]);
+
+  const allChecks={},allSigs={};
+  checksSnap.forEach(d=>{allChecks[d.id]=d.data().checks||{}});
+  sigsSnap.forEach(d=>{allSigs[d.id]=d.data()});
+
+  // Sheet 1: Daily Checks
+  const r1=[["日期","Zone","設備名稱","Common Name","Asset ID","檢查狀態","Zone簽名狀態"]];
+  for(let d=1;d<=days;d++){
+    const dt=`${mo}-${String(d).padStart(2,"0")}`;
+    const dc=allChecks[dt]||{},sg=allSigs[dt]||{};
+    D.equipment.forEach(eq=>{
+      r1.push([fmt(dt),eq.zone,eq.name,eq.commonName,eq.assetId,dc[eq.id]?"✓":"✗",sg[eq.zone]?"已簽":"未簽"]);
+    });
+  }
+  const ws1=XLSX.utils.aoa_to_sheet(r1);
+
+  // Sheet 2: Maintenance
+  const r2=[["日期","設備名稱","Asset ID","Zone","維修動作","狀態","完成日期"]];
+  D.maintenance.filter(m=>m.date&&m.date.startsWith(mo)).forEach(m=>{
+    const eq=D.equipment.find(e=>e.id===m.equipmentId);
+    r2.push([fmt(m.date),eq?.name||"—",eq?.assetId||"—",eq?.zone||"—",m.action,m.completed?"已完成":"進行中",m.completedDate?fmt(m.completedDate):"—"]);
+  });
+  const ws2=XLSX.utils.aoa_to_sheet(r2);
+
+  // Sheet 3: Transfers
+  const r3=[["送出日期","設備名稱","Asset ID","Zone","目的地","狀態","歸還日期"]];
+  D.transfers.filter(t=>t.sendDate&&t.sendDate.startsWith(mo)).forEach(t=>{
+    const eq=D.equipment.find(e=>e.id===t.equipmentId);
+    r3.push([fmt(t.sendDate),eq?.name||"—",eq?.assetId||"—",eq?.zone||"—",t.destination,t.returned?"已歸還":"轉移中",t.returnedDate?fmt(t.returnedDate):"—"]);
+  });
+  const ws3=XLSX.utils.aoa_to_sheet(r3);
+
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws1,"每日檢查");
+  XLSX.utils.book_append_sheet(wb,ws2,"維修紀錄");
+  XLSX.utils.book_append_sheet(wb,ws3,"轉移紀錄");
+
+  [ws1,ws2,ws3].forEach(ws=>{
+    const ref=ws["!ref"];if(!ref)return;
+    const rng=XLSX.utils.decode_range(ref),cols=[];
+    for(let c=rng.s.c;c<=rng.e.c;c++){
+      let mx=10;
+      for(let r=rng.s.r;r<=rng.e.r;r++){const cl=ws[XLSX.utils.encode_cell({r,c})];if(cl&&cl.v)mx=Math.max(mx,String(cl.v).length*1.6)}
+      cols.push({wch:Math.min(mx,32)});
+    }
+    ws["!cols"]=cols;
+  });
+
+  XLSX.writeFile(wb,`PT設備管理_${mo}.xlsx`);
+  toast("Excel 已下載 ✓");
+}
+
+// ═════════════════════════════════════════════════════════════
+//  CLEAR ALL → Firestore batch delete
+// ═════════════════════════════════════════════════════════════
+async function clearAllData(){
+  if(!confirm("確定清除所有設備、維修及轉移資料？\n此操作不可還原！"))return;
+  if(!confirm("再次確認：真的要刪除全部資料？"))return;
+
+  toast("正在清除...");
+  const collections=["equipment","maintenance","transfers","dailyChecks","signatures"];
+  for(const col of collections){
+    const snap=await db.collection(col).get();
+    for(let start=0;start<snap.docs.length;start+=450){
+      const batch=db.batch();
+      snap.docs.slice(start,start+450).forEach(d=>batch.delete(d.ref));
+      await batch.commit();
+    }
+  }
+  toast("已清除全部資料");
+}
+
+// ═════════════════════════════════════════════════════════════
+//  INIT
+// ═════════════════════════════════════════════════════════════
+$("dailyDate").value=todayStr();
+$("settingsMonth").value=todayStr().slice(0,7);
+
+$("dailySearch").addEventListener("input",renderDaily);
+$("equipSearch").addEventListener("input",renderEquip);
+$("dailyDate").addEventListener("change",()=>{
+  setupDateListeners(getDate());
+  renderDaily();
+});
+$("dailySearchX").addEventListener("click",()=>{$("dailySearch").value="";renderDaily()});
+$("equipSearchX").addEventListener("click",()=>{$("equipSearch").value="";renderEquip()});
+
+renderAll();
+</script>
+</body>
+</html>
