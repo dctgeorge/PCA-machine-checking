@@ -156,6 +156,7 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--ink);min-heig
 
 <div class="tab-bar">
   <button class="tab-btn active" data-tab="daily">📋 每日檢查</button>
+  <button class="tab-btn" data-tab="remarks">📝 Remarks</button>
   <button class="tab-btn" data-tab="maint">🔧 維修紀錄</button>
   <button class="tab-btn" data-tab="transfer">🔄 轉移紀錄</button>
   <button class="tab-btn" data-tab="equip">📦 設備管理</button>
@@ -190,6 +191,24 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--ink);min-heig
     <button class="btn btn-pri btn-full mt8" style="padding:14px" onclick="exportMonthly()">
       📊 匯出 <span id="exportMonth"></span> 月份報告 (Excel)
     </button>
+  </div>
+
+  <!-- ═══ REMARKS ═══ -->
+  <div id="tab-remarks" class="tab-content hidden">
+    <div class="card">
+      <div class="fx g8 ac fw">
+        <div class="gr" style="min-width:160px">
+          <label class="fl">選擇日期</label>
+          <input type="date" id="remarksDate" class="fi" style="margin-bottom:0">
+        </div>
+        <div class="tar">
+          <div class="f12 cm">有 Remarks 設備</div>
+          <div id="remarksCount" class="f22 w8" style="color:var(--accent)">0</div>
+        </div>
+      </div>
+    </div>
+    <div class="zone-pills" id="remarksZonePills"></div>
+    <div id="remarksList"></div>
   </div>
 
   <!-- ═══ MAINT ═══ -->
@@ -285,9 +304,11 @@ let D={zones:[...DEFAULT_ZONES],equipment:[],maintenance:[],transfers:[]};
 let checksCache={},remarksCache={},sigsCache={};
 let loadCount=0;const LOAD_TARGET=4;
 // Zone filters per tab
-let dailyZoneFilter="all", maintZoneFilter="all", transZoneFilter="all";
+let dailyZoneFilter="all", maintZoneFilter="all", transZoneFilter="all", remarksZoneFilter="all";
 // Remark debounce timers
 let remarkTimers={};
+// Separate cache for Remarks page date
+let remarksPageData={checks:{},remarks:{}};
 
 // ═══════════════════════════════════════════════
 //  HELPERS
@@ -712,7 +733,79 @@ function renderSettings(){
   $("settingsMonth").value=getMonth();
 }
 
-function renderAll(){renderDaily();renderMaint();renderTransfers();renderEquip();renderSettings()}
+function renderAll(){renderDaily();renderRemarks();renderMaint();renderTransfers();renderEquip();renderSettings()}
+
+// ═══════════════════════════════════════════════
+//  RENDER: REMARKS PAGE
+// ═══════════════════════════════════════════════
+function getRemarksDate(){return $("remarksDate")?.value||todayStr()}
+function setRemarksZone(z){remarksZoneFilter=z;renderRemarks()}
+
+async function loadRemarksForDate(date){
+  try{
+    const doc=await db.collection("dailyChecks").doc(date).get();
+    if(doc.exists){const d=doc.data();remarksPageData={checks:d.checks||{},remarks:d.remarks||{}}}
+    else remarksPageData={checks:{},remarks:{}};
+  }catch(e){console.error(e);remarksPageData={checks:{},remarks:{}};}
+  renderRemarks();
+}
+
+function renderRemarks(){
+  const dateEl=$("remarksDate");
+  if(!dateEl)return;
+  const date=getRemarksDate();
+
+  // If this date matches the daily tab date, use live cache; otherwise use separately fetched data
+  let remarks,checks;
+  if(date===getDate()){
+    remarks=remarksCache[date]||{};
+    checks=checksCache[date]||{};
+  } else {
+    remarks=remarksPageData.remarks||{};
+    checks=remarksPageData.checks||{};
+  }
+
+  renderZonePills("remarksZonePills",remarksZoneFilter,"setRemarksZone");
+
+  // Filter equipment that has a remark on this date
+  const remarkedEqs=D.equipment.filter(e=>remarks[e.id]&&remarks[e.id].trim());
+  let filtered=remarkedEqs;
+  if(remarksZoneFilter!=="all") filtered=filtered.filter(e=>e.zone===remarksZoneFilter);
+
+  $("remarksCount").textContent=remarkedEqs.length;
+
+  if(!filtered.length){
+    $("remarksList").innerHTML=`<div class="card"><div class="empty"><i>📝</i><div>${remarkedEqs.length===0?'此日期沒有任何 Remarks':'此區域沒有 Remarks'}</div>
+      <div class="f12" style="margin-top:4px">${remarkedEqs.length===0?'當設備在每日檢查中填寫 Remarks 後會顯示於此':'請選擇其他區域'}</div></div></div>`;
+    return;
+  }
+
+  // Group by zone
+  const byZone={};
+  filtered.forEach(e=>{if(!byZone[e.zone])byZone[e.zone]=[];byZone[e.zone].push(e)});
+
+  let h="";
+  Object.keys(byZone).forEach(zone=>{
+    h+=`<div class="card">
+      <div class="fx ac g8 mb12"><div class="w8 f14">${esc(zone)}</div><span class="badge bg-orange">${byZone[zone].length} remarks</span></div>`;
+    byZone[zone].forEach(e=>{
+      const rm=remarks[e.id]||"";
+      const c=!!checks[e.id];
+      h+=`<div style="padding:10px 0;border-top:1px solid #f3f4f7">
+        <div class="fx ac g8 mb6">
+          <span class="badge ${c?'bg-green':'bg-red'}" style="font-size:10px">${c?'✓ Checked':'✗ Unchecked'}</span>
+          <span class="w6 f13">${esc(e.name)}</span>
+        </div>
+        <div class="f12 cm mb6">${esc(e.commonName)} · ${esc(e.assetId)}</div>
+        <div style="padding:8px 12px;background:#fff8ec;border-left:3px solid var(--orange);border-radius:0 var(--rs) var(--rs) 0;font-size:13px;color:var(--ink)">
+          ${esc(rm)}
+        </div>
+      </div>`;
+    });
+    h+=`</div>`;
+  });
+  $("remarksList").innerHTML=h;
+}
 
 // ═══════════════════════════════════════════════
 //  EQUIPMENT FORM
@@ -943,10 +1036,16 @@ async function clearAllData(){
 //  INIT
 // ═══════════════════════════════════════════════
 $("dailyDate").value=todayStr();
+$("remarksDate").value=todayStr();
 $("settingsMonth").value=todayStr().slice(0,7);
 $("dailySearch").addEventListener("input",renderDaily);
 $("equipSearch").addEventListener("input",renderEquip);
 $("dailyDate").addEventListener("change",()=>{setupDateListeners(getDate());renderDaily()});
+$("remarksDate").addEventListener("change",()=>{
+  const rd=getRemarksDate();
+  if(rd===getDate()) renderRemarks();
+  else loadRemarksForDate(rd);
+});
 $("dailySearchX").addEventListener("click",()=>{$("dailySearch").value="";renderDaily()});
 $("equipSearchX").addEventListener("click",()=>{$("equipSearch").value="";renderEquip()});
 renderAll();
