@@ -45,28 +45,33 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--ink);min-heig
 .card.dim{opacity:.72}
 
 .badge{display:inline-block;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700}
-.bg-green{background:var(–green-lt);color:var(–green)}.bg-red{background:var(–red-lt);color:var(–red)}
-.bg-blue{background:var(–blue-lt);color:var(–blue)}.bg-orange{background:var(–orange-lt);color:var(–orange)}
-.bg-ink{background:var(–accent-lt);color:var(–accent)}.bg-gray{background:#f0f1f5;color:var(–ink2)}
+.bg-green{background:#d1f5e6;color:#067a52}.bg-red{background:#fce0e5;color:#b8243b}
+.bg-blue{background:#dde8ff;color:#1d4ed8}.bg-orange{background:#fde8d0;color:#b85c18}
+.bg-ink{background:#d6dff5;color:#0f3480}.bg-gray{background:#e4e6eb;color:#333b4a}
 
 .btn{padding:11px 20px;border-radius:var(–rs);border:none;font-weight:700;cursor:pointer;font-size:13px;font-family:var(–font);transition:.15s;display:inline-flex;align-items:center;justify-content:center;gap:6px}
 .btn:active{transform:scale(.97)}
 .btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
-.btn-pri{background:var(–ink);color:#fff}.btn-acc{background:var(–accent);color:#fff}
-.btn-grn{background:var(–green);color:#fff}.btn-red{background:var(–red);color:#fff}
-.btn-blu{background:var(–blue);color:#fff}.btn-gho{background:#eceef2;color:var(–ink);border:1px solid #d0d4dd}
+.btn-pri{background:#141825;color:#fff}.btn-acc{background:#1746a2;color:#fff}
+.btn-grn{background:#0d9f6e;color:#fff}.btn-red{background:#d03050;color:#fff}
+.btn-blu{background:#2563eb;color:#fff}
+.btn-gho{background:#e4e6ed;color:#1a1f2e;border:1.5px solid #c0c5d0}
 .btn-full{width:100%}.btn-sm{padding:7px 13px;font-size:12px;border-radius:8px}
-.btn-xs{padding:5px 9px;font-size:11px;border-radius:6px;font-weight:600;border:1px solid #d0d4dd}
+.btn-xs{padding:5px 10px;font-size:11px;border-radius:6px;font-weight:700;border:1.5px solid #c0c5d0;background:#e4e6ed;color:#1a1f2e}
+/* Specific small button themes */
+.btn-xs-red{background:#fce0e5;color:#a01e32;border-color:#e8a0ad}
+.btn-xs-blue{background:#dde8ff;color:#1746a2;border-color:#a8bde8}
+.btn-xs-del{background:#fce0e5;color:#a01e32;border-color:#e8a0ad}
 
 .fl{font-size:12px;font-weight:600;color:var(–ink2);margin-bottom:5px;display:block}
-.fi,.fsel{width:100%;padding:11px 14px;border-radius:var(–rs);border:1.5px solid var(–border);font-size:14px;font-family:var(–font);background:var(–card);color:var(–ink);outline:none;transition:border .2s;margin-bottom:12px}
-.fi:focus,.fsel:focus{border-color:var(–accent)}
+.fi,.fsel{width:100%;padding:11px 14px;border-radius:var(–rs);border:1.5px solid #b8bfcc;font-size:14px;font-family:var(–font);background:var(–card);color:var(–ink);outline:none;transition:border .2s;margin-bottom:12px}
+.fi:focus,.fsel:focus{border-color:#1746a2}
 
 .sw{position:relative;margin-bottom:14px}
-.si-icon{position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:15px;color:var(–ink3);pointer-events:none}
-.si{width:100%;padding:11px 40px 11px 40px;border-radius:var(–rs);border:1.5px solid var(–border);font-size:14px;font-family:var(–font);background:#fafbfd;outline:none;transition:border .2s}
-.si:focus{border-color:var(–accent);background:#fff}
-.si-x{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:17px;cursor:pointer;color:var(–ink3)}
+.si-icon{position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:15px;color:#6b7588;pointer-events:none}
+.si{width:100%;padding:11px 40px 11px 40px;border-radius:var(–rs);border:1.5px solid #b8bfcc;font-size:14px;font-family:var(–font);background:#fafbfd;outline:none;transition:border .2s}
+.si:focus{border-color:#1746a2;background:#fff}
+.si-x{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:#e4e6ed;border:1.5px solid #c0c5d0;font-size:14px;cursor:pointer;color:#333;width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center}
 
 /* Zone filter pills */
 .zone-pills{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px;scrollbar-width:none}
@@ -81,29 +86,29 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--ink);min-heig
 .eqr:first-child{border-top:none}
 
 /* Remarks input inline */
-.remark-input{width:100%;padding:6px 10px;border-radius:6px;border:1px solid var(–border);font-size:12px;font-family:var(–font);color:var(–ink);outline:none;margin-top:6px;background:#fafbfd;transition:border .2s}
-.remark-input:focus{border-color:var(–accent);background:#fff}
-.remark-input::placeholder{color:var(–ink3)}
+.remark-input{width:100%;padding:6px 10px;border-radius:6px;border:1.5px solid #c0c5d0;font-size:12px;font-family:var(–font);color:var(–ink);outline:none;margin-top:6px;background:#f8f9fb;transition:border .2s}
+.remark-input:focus{border-color:#1746a2;background:#fff}
+.remark-input::placeholder{color:#8892a4}
 
 /* Action buttons row */
 .eq-actions{display:flex;gap:4px;margin-top:6px}
 
-.sigp{height:38px;border-radius:6px;border:1px solid var(–border)}
+.sigp{height:38px;border-radius:6px;border:1.5px solid #b0b8c8}
 
 .overlay{position:fixed;inset:0;z-index:7000;background:rgba(20,24,37,.5);display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;animation:fadeIn .2s}
 .modal{background:#fff;border-radius:18px;padding:24px;width:100%;max-width:480px;margin:40px 0;box-shadow:var(–shadow-lg);animation:slideUp .25s}
 .modal-w{max-width:620px}
 .mh{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
 .mt-t{font-weight:800;font-size:18px;color:var(–ink)}
-.mt-x{background:none;border:none;font-size:22px;cursor:pointer;color:var(–ink3);line-height:1}
+.mt-x{background:#e4e6ed;border:1.5px solid #c0c5d0;font-size:18px;cursor:pointer;color:#333;line-height:1;width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center}
 
 .sig-ov{position:fixed;inset:0;z-index:9000;background:rgba(20,24,37,.55);display:flex;align-items:center;justify-content:center;padding:16px;animation:fadeIn .15s}
 .sig-box{background:#fff;border-radius:18px;padding:22px;width:100%;max-width:460px;box-shadow:0 20px 60px rgba(20,24,37,.3)}
-.sig-cv{width:100%;height:180px;border:2px solid var(–border);border-radius:var(–rs);background:#fafbfd;touch-action:none;cursor:crosshair;display:block}
+.sig-cv{width:100%;height:180px;border:2px solid #b0b8c8;border-radius:var(–rs);background:#fafbfd;touch-action:none;cursor:crosshair;display:block}
 .sig-acts{display:flex;gap:8px;margin-top:14px}
 .sig-acts .btn{flex:1}.sig-acts .btn-pri{flex:2}
 
-.zchip{display:inline-flex;align-items:center;padding:7px 14px;background:var(–accent-lt);color:var(–accent);border-radius:8px;font-size:13px;font-weight:600}
+.zchip{display:inline-flex;align-items:center;padding:7px 14px;background:#d6dff5;color:#0f3480;border-radius:8px;font-size:13px;font-weight:600;border:1px solid #a8bde8}
 
 .empty{text-align:center;padding:44px 20px;color:var(–ink3)}
 .empty i{font-size:42px;display:block;margin-bottom:12px;font-style:normal}
@@ -500,7 +505,7 @@ function renderDaily(){
       <div>${signed?'<span class="badge bg-green">✓ 已簽</span>':'<span class="badge bg-orange">未完成</span>'}</div></div>`;
 
     if(eq.length>0){
-      h+=`<button class="btn btn-gho btn-full mb10" style="padding:11px;font-size:13px;${allC?'color:var(--green)':''}" onclick="checkAllZone('${esc(zone)}')">
+      h+=`<button class="btn btn-gho btn-full mb10" style="padding:11px;font-size:13px;${allC?'color:#067a52;font-weight:800':''}" onclick="checkAllZone('${esc(zone)}')">
         ${allC?'✓ 全部已檢查 — 取消全選':'☐ 一鍵全選 Check All'}</button>`;
     }
 
@@ -519,8 +524,8 @@ function renderDaily(){
           <div class="f11 cm">Location: ${esc(e.location)} · SN: ${esc(e.serialNumber)}</div>
           <input class="remark-input" placeholder="Remarks..." value="${esc(rm)}" onchange="saveRemark('${e.id}',this.value)" oninput="debouncedRemark('${e.id}',this.value)">
           <div class="eq-actions">
-            <button class="btn-xs btn-gho" style="color:var(--red)" onclick="openMaintFormFor('${e.id}')">🔧 維修</button>
-            <button class="btn-xs btn-gho" style="color:var(--blue)" onclick="openTransFormFor('${e.id}')">🔄 轉移</button>
+            <button class="btn-xs btn-xs-red" onclick="openMaintFormFor('${e.id}')">🔧 維修</button>
+            <button class="btn-xs btn-xs-blue" onclick="openTransFormFor('${e.id}')">🔄 轉移</button>
           </div>
         </div>
       </div>`;
@@ -533,8 +538,8 @@ function renderDaily(){
           <div class="fx ac jb">
             <div class="fx ac g8"><img src="${signed.img}" class="sigp"><span class="f12 w7 cg">已簽名確認</span></div>
             <div class="fx g4">
-              <button class="btn-xs btn-gho" onclick="resignZone('${esc(zone)}')">✏️ 重簽</button>
-              <button class="btn-xs" style="background:var(--red-lt);color:var(--red)" onclick="cancelSig('${esc(zone)}')">✕ 取消</button>
+              <button class="btn-xs" onclick="resignZone('${esc(zone)}')">✏️ 重簽</button>
+              <button class="btn-xs btn-xs-del" onclick="cancelSig('${esc(zone)}')">✕ 取消</button>
             </div>
           </div>
         </div>`;
@@ -630,7 +635,7 @@ function renderMaint(){
         <div><div class="w7 f14">${esc(eq?.name||'未知設備')}</div><div class="f12 cm">${esc(eq?.assetId||'')} · ${esc(eq?.zone||'')}</div></div>
         <div class="fx g4 ac">
           <span class="badge ${m.completed?'bg-green':'bg-red'}">${m.completed?'已完成':'維修中'}</span>
-          <button class="btn-xs" style="background:var(--red-lt);color:var(--red)" onclick="deleteMaint('${m.id}')">🗑</button>
+          <button class="btn-xs btn-xs-del" onclick="deleteMaint('${m.id}')">🗑</button>
         </div>
       </div>
       <div class="adet"><strong>Action:</strong> ${esc(m.action)}</div>
@@ -677,7 +682,7 @@ function renderTransfers(){
         <div><div class="w7 f14">${esc(eq?.name||'未知設備')}</div><div class="f12 cm">${esc(eq?.assetId||'')} · ${esc(eq?.zone||'')}</div></div>
         <div class="fx g4 ac">
           <span class="badge ${t.returned?'bg-green':'bg-blue'}">${t.returned?'已歸還':'轉移中'}</span>
-          <button class="btn-xs" style="background:var(--red-lt);color:var(--red)" onclick="deleteTrans('${t.id}')">🗑</button>
+          <button class="btn-xs btn-xs-del" onclick="deleteTrans('${t.id}')">🗑</button>
         </div>
       </div>
       <div class="adet"><strong>目的地:</strong> ${esc(t.destination)}</div>
@@ -729,7 +734,7 @@ function renderEquip(){
       </div>
       <div class="fx g4 s0">
         <button class="btn btn-gho btn-sm" onclick="openEquipForm('${eq.id}')">✏️</button>
-        <button class="btn btn-sm" style="background:var(--red-lt);color:var(--red)" onclick="deleteEquip('${eq.id}')">🗑</button>
+        <button class="btn btn-sm btn-xs-del" onclick="deleteEquip('${eq.id}')">🗑</button>
       </div>
     </div></div>`;
   });
@@ -948,7 +953,7 @@ function _renderZM(){
     rows+=`<div class="fx ac g8 mb10">
       <div class="gr" style="padding:9px 12px;background:#f5f6f9;border-radius:8px;font-size:13px;font-weight:500">${esc(z)}</div>
       <button class="btn btn-gho btn-sm" onclick="editZone(${i})">✏️</button>
-      <button class="btn btn-sm" style="background:var(--red-lt);color:var(--red)" onclick="deleteZone(${i})">🗑</button>
+      <button class="btn btn-sm btn-xs-del" onclick="deleteZone(${i})">🗑</button>
     </div>`;
   });
   openModal("管理 Zones",`${rows}<div class="fx g8 mt12">
