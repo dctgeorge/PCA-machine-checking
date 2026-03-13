@@ -34,7 +34,7 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--ink);min-heig
 .tab-bar{display:flex;gap:4px;overflow-x:auto;padding:0 14px 14px;background:linear-gradient(135deg,#141825,#1c2541 55%,#1746a2);position:sticky;top:61px;z-index:99;scrollbar-width:none}
 .tab-bar::-webkit-scrollbar{display:none}
 .tab-btn{padding:9px 16px;border-radius:22px;border:none;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.2s;font-family:var(–font);background:rgba(255,255,255,.12);color:rgba(255,255,255,.75)}
-.tab-btn.active{background:#fff;color:var(–ink);font-weight:700}
+.tab-btn.active{background:#ffffff;color:#141825 !important;font-weight:700}
 
 .content{padding:16px;max-width:720px;margin:0 auto}
 .hidden{display:none!important}
@@ -176,12 +176,12 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--ink);min-heig
 
   <div id="tab-daily" class="tab-content">
     <div class="card">
-      <div class="fx g8 ac fw">
-        <div class="gr" style="min-width:160px">
+      <div style="display:flex;gap:12px;align-items:flex-end">
+        <div style="flex:1;min-width:0">
           <label class="fl">選擇日期</label>
           <input type="date" id="dailyDate" class="fi" style="margin-bottom:0">
         </div>
-        <div class="tar">
+        <div style="text-align:right;flex-shrink:0;padding-bottom:2px">
           <div class="f12 cm">簽名狀態</div>
           <div id="dailySigStatus" class="f22 w8 co">0/0</div>
         </div>
@@ -205,14 +205,14 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--ink);min-heig
 
   <div id="tab-remarks" class="tab-content hidden">
     <div class="card">
-      <div class="fx g8 ac fw">
-        <div class="gr" style="min-width:160px">
+      <div style="display:flex;gap:12px;align-items:flex-end">
+        <div style="flex:1;min-width:0">
           <label class="fl">選擇日期</label>
           <input type="date" id="remarksDate" class="fi" style="margin-bottom:0">
         </div>
-        <div class="tar">
+        <div style="text-align:right;flex-shrink:0;padding-bottom:2px">
           <div class="f12 cm">有 Remarks 設備</div>
-          <div id="remarksCount" class="f22 w8" style="color:var(--accent)">0</div>
+          <div id="remarksCount" class="f22 w8" style="color:#1746a2">0</div>
         </div>
       </div>
     </div>
