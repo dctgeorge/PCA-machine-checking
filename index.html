@@ -1,1182 +1,1076 @@
 <!DOCTYPE html>
 
-<html lang="zh-Hant">
+<html lang="zh-HK">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>PT 設備管理系統</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@400;500;600;700;800;900&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
-
-:root {
-–bg: #f0f2f5;
-–card: #ffffff;
-–primary: #2563eb;
-–primary-hover: #1d4ed8;
-–primary-light: #dbeafe;
-–danger: #dc2626;
-–danger-light: #fee2e2;
-–success: #16a34a;
-–success-light: #dcfce7;
-–warning: #f59e0b;
-–warning-light: #fef3c7;
-–purple: #7c3aed;
-–purple-light: #ede9fe;
-–text: #1e293b;
-–text-secondary: #64748b;
-–border: #e2e8f0;
-–radius: 12px;
-–shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
-–shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06);
+:root{
+  --bg:#eef0f4;--card:#fff;--ink:#141825;--ink2:#555e70;--ink3:#99a1b3;
+  --border:#e2e5ec;--accent:#1746a2;--accent-lt:#e8eefb;
+  --green:#0d9f6e;--green-lt:#e6f9f1;--red:#d03050;--red-lt:#fcedef;
+  --orange:#e07020;--orange-lt:#fef3e8;--blue:#2563eb;--blue-lt:#eff4ff;
+  --r:14px;--rs:10px;
+  --shadow:0 2px 10px rgba(20,24,37,.06);
+  --shadow-lg:0 14px 44px rgba(20,24,37,.16);
+  --font:'DM Sans','Noto Sans HK',sans-serif;
 }
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{font-family:var(--font);background:var(--bg);color:var(--ink);min-height:100vh;overflow-x:hidden}
 
-- { margin:0; padding:0; box-sizing:border-box; }
-  html, body { height:100%; }
-  body {
-  font-family: ‘Noto Sans TC’, sans-serif;
-  background: var(–bg);
-  color: var(–text);
-  overflow-x: hidden;
-  padding-bottom: 70px;
-  }
+.header{background:linear-gradient(135deg,#141825,#1c2541 55%,#1746a2);color:#fff;padding:22px 18px 16px;position:sticky;top:0;z-index:100;box-shadow:0 4px 20px rgba(20,24,37,.3)}
+.header h1{font-size:20px;font-weight:800;letter-spacing:-.5px}
+.header .sub{font-size:11px;opacity:.5;margin-top:3px;letter-spacing:.5px;text-transform:uppercase}
+.header .status{position:absolute;right:18px;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:#f59e0b;animation:pulse 1.5s infinite}
+.dot.on{background:#0d9f6e;animation:none}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
 
-/* LOADING OVERLAY */
-#loadingOverlay {
-position:fixed; top:0; left:0; right:0; bottom:0;
-background: white; z-index:9999;
-display:flex; flex-direction:column;
-align-items:center; justify-content:center; gap:16px;
-transition: opacity 0.3s;
-}
-#loadingOverlay.hide { opacity:0; pointer-events:none; }
-.spinner {
-width:40px; height:40px;
-border: 4px solid var(–border);
-border-top-color: var(–primary);
-border-radius:50%;
-animation: spin 0.8s linear infinite;
-}
-@keyframes spin { to { transform:rotate(360deg); } }
+.tab-bar{display:flex;gap:4px;overflow-x:auto;padding:0 14px 14px;background:linear-gradient(135deg,#141825,#1c2541 55%,#1746a2);position:sticky;top:61px;z-index:99;scrollbar-width:none}
+.tab-bar::-webkit-scrollbar{display:none}
+.tab-btn{padding:9px 16px;border-radius:22px;border:none;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.2s;font-family:var(–font);background:rgba(255,255,255,.12);color:rgba(255,255,255,.75)}
+.tab-btn.active{background:#fff;color:var(–ink);font-weight:700}
 
-/* SYNC INDICATOR */
-.sync-indicator {
-position:fixed; top:8px; right:8px; z-index:1500;
-padding: 4px 10px; border-radius:12px;
-font-size:11px; font-weight:600;
-background: var(–success-light); color: var(–success);
-opacity:0; transition: opacity 0.3s;
-pointer-events:none;
-}
-.sync-indicator.show { opacity:1; }
-.sync-indicator.error { background: var(–danger-light); color: var(–danger); }
+.content{padding:16px;max-width:720px;margin:0 auto}
+.hidden{display:none!important}
 
-/* NAV */
-.bottom-nav {
-position: fixed; bottom:0; left:0; right:0;
-background: var(–card);
-border-top: 1px solid var(–border);
-display: flex; z-index: 1000;
-box-shadow: 0 -2px 10px rgba(0,0,0,0.06);
-}
-.bottom-nav .nav-item {
-flex:1; display:flex; flex-direction:column; align-items:center;
-padding: 8px 4px 10px; gap:3px;
-font-size: 11px; font-weight:500;
-color: var(–text-secondary);
-cursor: pointer; border:none; background:none;
-transition: color 0.2s;
--webkit-tap-highlight-color: transparent;
-}
-.bottom-nav .nav-item.active { color: var(–primary); }
-.bottom-nav .nav-item svg { width:22px; height:22px; }
+.card{background:var(–card);border-radius:var(–r);padding:16px;margin-bottom:12px;box-shadow:var(–shadow);border:1px solid var(–border)}
+.card.bdr-green{border-left:4px solid var(–green)}.card.bdr-gray{border-left:4px solid var(–border)}
+.card.bdr-red{border-left:4px solid var(–red)}.card.bdr-blue{border-left:4px solid var(–blue)}
+.card.dim{opacity:.72}
 
-/* HEADER */
-.page-header {
-background: var(–primary);
-color: white;
-padding: 16px 16px 14px;
-position: sticky; top:0; z-index: 100;
-}
-.page-header h1 { font-size: 18px; font-weight: 600; }
+.badge{display:inline-block;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700}
+.bg-green{background:#d1f5e6;color:#067a52}.bg-red{background:#fce0e5;color:#b8243b}
+.bg-blue{background:#dde8ff;color:#1d4ed8}.bg-orange{background:#fde8d0;color:#b85c18}
+.bg-ink{background:#d6dff5;color:#0f3480}.bg-gray{background:#e4e6eb;color:#333b4a}
 
-/* PAGE */
-.page { display:none; min-height: 100vh; }
-.page.active { display:block; }
-.page-content { padding: 12px; }
+.btn{padding:11px 20px;border-radius:var(–rs);border:none;font-weight:700;cursor:pointer;font-size:13px;font-family:var(–font);transition:.15s;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn-pri{background:#141825;color:#fff}.btn-acc{background:#1746a2;color:#fff}
+.btn-grn{background:#0d9f6e;color:#fff}.btn-red{background:#d03050;color:#fff}
+.btn-blu{background:#2563eb;color:#fff}
+.btn-gho{background:#e4e6ed;color:#1a1f2e;border:1.5px solid #c0c5d0}
+.btn-full{width:100%}.btn-sm{padding:7px 13px;font-size:12px;border-radius:8px}
+.btn-xs{padding:5px 10px;font-size:11px;border-radius:6px;font-weight:700;border:1.5px solid #c0c5d0;background:#e4e6ed;color:#1a1f2e}
+/* Specific small button themes */
+.btn-xs-red{background:#fce0e5;color:#a01e32;border-color:#e8a0ad}
+.btn-xs-blue{background:#dde8ff;color:#1746a2;border-color:#a8bde8}
+.btn-xs-del{background:#fce0e5;color:#a01e32;border-color:#e8a0ad}
 
-/* CARDS */
-.card {
-background: var(–card);
-border-radius: var(–radius);
-box-shadow: var(–shadow);
-margin-bottom: 12px;
-overflow: hidden;
-}
-.card-header {
-padding: 12px 14px;
-font-weight: 600; font-size: 14px;
-border-bottom: 1px solid var(–border);
-display: flex; align-items: center; justify-content: space-between;
-}
+.fl{font-size:12px;font-weight:600;color:var(–ink2);margin-bottom:5px;display:block}
+.fi,.fsel{width:100%;padding:11px 14px;border-radius:var(–rs);border:1.5px solid #b8bfcc;font-size:14px;font-family:var(–font);background:var(–card);color:var(–ink);outline:none;transition:border .2s;margin-bottom:12px}
+.fi:focus,.fsel:focus{border-color:#1746a2}
 
-/* BUTTONS */
-.btn {
-display: inline-flex; align-items: center; justify-content:center; gap:6px;
-padding: 10px 18px; border-radius: 8px;
-font-size: 14px; font-weight: 500;
-border: none; cursor: pointer;
-font-family: inherit; transition: all 0.15s;
--webkit-tap-highlight-color: transparent;
-}
-.btn-primary { background: var(–primary); color:white; }
-.btn-primary:hover { background: var(–primary-hover); }
-.btn-danger { background: var(–danger); color:white; }
-.btn-success { background: var(–success); color:white; }
-.btn-warning { background: var(–warning); color:white; }
-.btn-purple { background: var(–purple); color:white; }
-.btn-outline { background: transparent; color: var(–primary); border: 1.5px solid var(–primary); }
-.btn-sm { padding: 6px 12px; font-size: 12px; }
-.btn-xs { padding: 4px 8px; font-size: 11px; border-radius:6px; }
-.btn-block { width:100%; }
-.btn:disabled { opacity:0.5; cursor:not-allowed; }
+.sw{position:relative;margin-bottom:14px}
+.si-icon{position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:15px;color:#6b7588;pointer-events:none}
+.si{width:100%;padding:11px 40px 11px 40px;border-radius:var(–rs);border:1.5px solid #b8bfcc;font-size:14px;font-family:var(–font);background:#fafbfd;outline:none;transition:border .2s}
+.si:focus{border-color:#1746a2;background:#fff}
+.si-x{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:#e4e6ed;border:1.5px solid #c0c5d0;font-size:14px;cursor:pointer;color:#333;width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center}
 
-/* INPUTS */
-input[type=“text”], input[type=“date”], input[type=“search”], select, textarea {
-width:100%; padding: 10px 12px;
-border: 1.5px solid var(–border); border-radius: 8px;
-font-size: 14px; font-family: inherit;
-background: var(–card); color: var(–text);
--webkit-appearance: none;
-}
-input:focus, select:focus, textarea:focus {
-outline:none; border-color: var(–primary);
-box-shadow: 0 0 0 3px var(–primary-light);
-}
-textarea { resize: vertical; min-height: 60px; }
+/* Zone filter pills */
+.zone-pills{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px;scrollbar-width:none}
+.zone-pills::-webkit-scrollbar{display:none}
+.zpill{padding:7px 14px;border-radius:20px;border:2px solid #d0d4dd;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;background:#fff;color:#444e5f;transition:.2s;font-family:var(–font)}
+.zpill.active{background:#1746a2;color:#ffffff;border-color:#1746a2;box-shadow:0 2px 8px rgba(23,70,162,.3)}
 
-.form-group { margin-bottom: 12px; }
-.form-group label { display:block; font-size: 13px; font-weight:500; color: var(–text-secondary); margin-bottom:4px; }
+.chk{width:30px;height:30px;border-radius:9px;border:2.5px solid #b0b8c8;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.15s;background:#f5f6f9;font-size:16px;color:#fff;font-weight:800}
+.chk.on{background:#0d9f6e;border-color:#0d9f6e}
 
-/* CHIPS */
-.chip-group { display:flex; flex-wrap:wrap; gap:8px; margin: 8px 0; }
-.chip {
-padding: 7px 16px; border-radius: 20px;
-font-size: 13px; font-weight:500;
-border: 1.5px solid var(–border);
-background: var(–card); cursor:pointer;
-transition: all 0.15s;
--webkit-tap-highlight-color: transparent;
-}
-.chip.active { background: var(–primary); color:white; border-color: var(–primary); }
+.eqr{display:flex;align-items:flex-start;gap:10px;padding:12px 0;border-top:1px solid #f3f4f7}
+.eqr:first-child{border-top:none}
 
-/* SEARCH BAR */
-.search-bar { position: relative; margin: 10px 0; }
-.search-bar input { padding-left: 38px; }
-.search-bar svg {
-position:absolute; left:12px; top:50%; transform:translateY(-50%);
-width:18px; height:18px; color: var(–text-secondary);
-}
+/* Remarks input inline */
+.remark-input{width:100%;padding:6px 10px;border-radius:6px;border:1.5px solid #c0c5d0;font-size:12px;font-family:var(–font);color:var(–ink);outline:none;margin-top:6px;background:#f8f9fb;transition:border .2s}
+.remark-input:focus{border-color:#1746a2;background:#fff}
+.remark-input::placeholder{color:#8892a4}
 
-/* EQUIPMENT LIST */
-.eq-item { padding: 12px 14px; border-bottom: 1px solid var(–border); }
-.eq-item:last-child { border-bottom:none; }
-.eq-item-name { font-weight: 600; font-size: 14px; margin-bottom:2px; }
-.eq-item-sub { font-size: 12px; color: var(–text-secondary); line-height:1.5; }
-.eq-item-actions { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+/* Action buttons row */
+.eq-actions{display:flex;gap:4px;margin-top:6px}
 
-/* BADGES */
-.badge { display:inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight:600; }
-.badge-maintenance { background: var(–warning-light); color: #92400e; }
-.badge-transfer { background: var(–purple-light); color: #5b21b6; }
+.sigp{height:38px;border-radius:6px;border:1.5px solid #b0b8c8}
 
-/* CALENDAR */
-.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; margin-top: 8px; }
-.cal-header { text-align:center; font-size:11px; font-weight:600; color: var(–text-secondary); padding:4px 0; }
-.cal-day {
-aspect-ratio: 1; display:flex; align-items:center; justify-content:center;
-border-radius: 8px; font-size: 12px; font-weight:500;
-}
-.cal-day.empty { background:transparent; }
-.cal-day.signed { background: var(–success-light); color: var(–success); }
-.cal-day.unsigned { background: var(–danger-light); color: var(–danger); }
-.cal-day.future { background: #f8fafc; color: #cbd5e1; }
-.cal-day.today { outline: 2px solid var(–primary); }
+.overlay{position:fixed;inset:0;z-index:7000;background:rgba(20,24,37,.5);display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;animation:fadeIn .2s}
+.modal{background:#fff;border-radius:18px;padding:24px;width:100%;max-width:480px;margin:40px 0;box-shadow:var(–shadow-lg);animation:slideUp .25s}
+.modal-w{max-width:620px}
+.mh{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.mt-t{font-weight:800;font-size:18px;color:var(–ink)}
+.mt-x{background:#e4e6ed;border:1.5px solid #c0c5d0;font-size:18px;cursor:pointer;color:#333;line-height:1;width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center}
 
-/* MODAL */
-.modal-overlay {
-position:fixed; top:0; left:0; right:0; bottom:0;
-background: rgba(0,0,0,0.5); z-index: 2000;
-display:flex; align-items:flex-end; justify-content:center;
-opacity:0; pointer-events:none; transition: opacity 0.2s;
-}
-.modal-overlay.show { opacity:1; pointer-events:auto; }
-.modal {
-background: var(–card); border-radius: 16px 16px 0 0;
-width: 100%; max-width: 500px;
-max-height: 85vh; overflow-y:auto;
-transform: translateY(100%); transition: transform 0.3s ease;
-padding: 20px 16px 30px;
-}
-.modal-overlay.show .modal { transform: translateY(0); }
-.modal-title {
-font-size: 17px; font-weight: 700; margin-bottom: 16px;
-display:flex; align-items:center; justify-content:space-between;
-}
-.modal-close {
-width:32px; height:32px; border-radius:50%;
-background: var(–bg); border:none; cursor:pointer;
-display:flex; align-items:center; justify-content:center;
-font-size:18px; color: var(–text-secondary);
-}
+.sig-ov{position:fixed;inset:0;z-index:9000;background:rgba(20,24,37,.55);display:flex;align-items:center;justify-content:center;padding:16px;animation:fadeIn .15s}
+.sig-box{background:#fff;border-radius:18px;padding:22px;width:100%;max-width:460px;box-shadow:0 20px 60px rgba(20,24,37,.3)}
+.sig-cv{width:100%;height:180px;border:2px solid #b0b8c8;border-radius:var(–rs);background:#fafbfd;touch-action:none;cursor:crosshair;display:block}
+.sig-acts{display:flex;gap:8px;margin-top:14px}
+.sig-acts .btn{flex:1}.sig-acts .btn-pri{flex:2}
 
-/* SIGNATURE PAD */
-.sig-container {
-border: 2px dashed var(–border); border-radius: 10px;
-background: #fafbfc; position: relative; margin: 8px 0;
-}
-.sig-container canvas { width:100%; display:block; border-radius: 8px; touch-action: none; }
-.sig-actions { display:flex; justify-content:space-between; margin-top:6px; }
+.zchip{display:inline-flex;align-items:center;padding:7px 14px;background:#d6dff5;color:#0f3480;border-radius:8px;font-size:13px;font-weight:600;border:1px solid #a8bde8}
 
-/* TABLE RECORDS */
-.record-item { padding: 12px 14px; border-bottom: 1px solid var(–border); }
-.record-item:last-child { border-bottom:none; }
+.empty{text-align:center;padding:44px 20px;color:var(–ink3)}
+.empty i{font-size:42px;display:block;margin-bottom:12px;font-style:normal}
 
-/* ZONE TAG */
-.zone-tag {
-display:inline-flex; align-items:center; gap:6px;
-padding: 6px 12px; background: var(–primary-light);
-border-radius: 8px; font-size: 13px; font-weight:500; color: var(–primary);
-}
-.zone-tag button { background:none; border:none; cursor:pointer; color: var(–danger); font-size:16px; padding:0 2px; }
+.adet{font-size:13px;margin:8px 0;padding:10px 14px;background:#fafbfd;border-radius:var(–rs)}
 
-/* MONTH NAV */
-.month-nav { display:flex; align-items:center; justify-content:center; gap:16px; padding: 8px 0; }
-.month-nav button { background:none; border:none; cursor:pointer; font-size:20px; color: var(–primary); padding:4px; }
-.month-nav span { font-size:15px; font-weight:600; }
+.loading-screen{position:fixed;inset:0;z-index:10000;background:var(–bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .4s}
+.loading-screen.fade{opacity:0;pointer-events:none}
+.spinner{width:40px;height:40px;border:4px solid var(–border);border-top-color:var(–accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 
-/* SIGN STATUS */
-.sign-bar {
-display:flex; align-items:center; justify-content:space-between;
-padding: 12px 14px; background: var(–success-light); border-radius: 10px; margin: 10px 0;
-}
-.sign-bar.unsigned { background: var(–danger-light); }
-.sign-bar-text { font-size:13px; font-weight:600; }
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:var(–ink);color:#fff;padding:12px 24px;border-radius:12px;font-size:13px;font-weight:600;z-index:9999;animation:toastIn .3s;box-shadow:var(–shadow-lg)}
+.toast.out{animation:toastOut .3s forwards}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+@keyframes toastOut{to{opacity:0;transform:translateX(-50%) translateY(20px)}}
 
-/* TOAST */
-.toast {
-position:fixed; top:20px; left:50%; transform:translateX(-50%);
-background: #1e293b; color:white; padding: 10px 20px; border-radius:10px;
-font-size:14px; font-weight:500; z-index:3000;
-opacity:0; transition: opacity 0.3s; pointer-events:none;
-}
-.toast.show { opacity:1; }
+/* Signature box with actions */
+.sig-area{margin-top:10px;padding:10px;border-radius:var(–rs)}
+.sig-area.signed{background:var(–green-lt)}
+.sig-area.unsigned{background:#f5f6f9}
 
-.sig-preview { max-width: 120px; max-height: 40px; border: 1px solid var(–border); border-radius:4px; background:#fff; }
-.empty-state { text-align:center; padding:40px 20px; color: var(–text-secondary); }
-.empty-state p { font-size:14px; }
-.flex-between { display:flex; align-items:center; justify-content:space-between; }
-.mb-8 { margin-bottom:8px; }
-.mt-12 { margin-top:12px; }
+.fx{display:flex}.g4{gap:4px}.g6{gap:6px}.g8{gap:8px}.g10{gap:10px}
+.fw{flex-wrap:wrap}.jb{justify-content:space-between}.ac{align-items:center}.as{align-items:flex-start}
+.gr{flex:1}.s0{flex-shrink:0}.mw0{min-width:0}
+.oe{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mt6{margin-top:6px}.mt8{margin-top:8px}.mt10{margin-top:10px}.mt12{margin-top:12px}
+.mb6{margin-bottom:6px}.mb10{margin-bottom:10px}.mb12{margin-bottom:12px}.mb14{margin-bottom:14px}
+.tar{text-align:right}.tac{text-align:center}
+.f11{font-size:11px}.f12{font-size:12px}.f13{font-size:13px}.f14{font-size:14px}.f22{font-size:22px}
+.w6{font-weight:600}.w7{font-weight:700}.w8{font-weight:800}
+.cm{color:var(–ink3)}.c2{color:var(–ink2)}.cg{color:var(–green)}.co{color:var(–orange)}
 
-@media(min-width:600px) {
-.page-content { max-width:600px; margin:0 auto; }
-.modal { border-radius:16px; margin-bottom:20px; }
-}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:400px){.header h1{font-size:17px}.tab-btn{font-size:12px;padding:8px 12px}.content{padding:12px}}
 </style>
 
 </head>
 <body>
 
-<div id="loadingOverlay">
+<div class="loading-screen" id="loadingScreen">
   <div class="spinner"></div>
-  <div style="font-size:14px;color:var(--text-secondary);">連接資料庫中...</div>
+  <div style="font-weight:700;color:var(--ink)">連接 Firebase 中...</div>
+  <div style="font-size:12px;color:var(--ink3)">Loading equipment data</div>
 </div>
 
-<div id="syncIndicator" class="sync-indicator">✓ 已同步</div>
-<div id="toast" class="toast"></div>
-
-<!-- PAGE: 每日檢查 -->
-
-<div id="page-daily" class="page active">
-  <div class="page-header"><h1>📋 每日設備檢查</h1></div>
-  <div class="page-content">
-    <div class="card" style="padding:12px 14px;">
-      <div class="flex-between">
-        <label style="font-weight:600;font-size:14px;">檢查日期</label>
-        <input type="date" id="checkDate" style="width:auto;" onchange="renderDailyPage()">
-      </div>
-    </div>
-    <div class="search-bar">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-      <input type="search" id="dailySearch" placeholder="搜尋設備名稱 / Asset ID..." oninput="renderEquipmentList()">
-    </div>
-    <div id="zoneChips" class="chip-group"></div>
-    <div id="signStatus"></div>
-    <div class="card">
-      <div class="card-header"><span id="eqCount">設備列表</span></div>
-      <div id="equipmentList"></div>
-    </div>
-    <div class="card" style="padding:14px;">
-      <div class="flex-between mb-8"><span style="font-weight:600;font-size:14px;">📅 月曆簽名狀態</span></div>
-      <div class="month-nav">
-        <button onclick="changeCalMonth(-1)">◀</button>
-        <span id="calMonthLabel"></span>
-        <button onclick="changeCalMonth(1)">▶</button>
-      </div>
-      <div id="calendarGrid" class="cal-grid"></div>
-    </div>
-    <button class="btn btn-primary btn-block mt-12" onclick="exportMonthly()">📥 匯出每月紀錄 (CSV)</button>
-  </div>
+<div class="header">
+  <h1>⚕️ PT 設備管理系統</h1>
+  <div class="sub">Physical Therapy Equipment Management</div>
+  <div class="status"><div class="dot" id="syncDot"></div><span style="font-size:11px;opacity:.6" id="syncLabel">Syncing</span></div>
 </div>
 
-<!-- PAGE: 維修表 -->
-
-<div id="page-maintenance" class="page">
-  <div class="page-header"><h1>🔧 維修紀錄表</h1></div>
-  <div class="page-content">
-    <div class="card">
-      <div class="card-header">正在維修的設備</div>
-      <div id="maintenanceList"></div>
-    </div>
-  </div>
+<div class="tab-bar">
+  <button class="tab-btn active" data-tab="daily">📋 每日檢查</button>
+  <button class="tab-btn" data-tab="remarks">📝 Remarks</button>
+  <button class="tab-btn" data-tab="maint">🔧 維修紀錄</button>
+  <button class="tab-btn" data-tab="transfer">🔄 轉移紀錄</button>
+  <button class="tab-btn" data-tab="equip">📦 設備管理</button>
+  <button class="tab-btn" data-tab="settings">⚙️ 設定</button>
 </div>
 
-<!-- PAGE: 轉移表 -->
+<div class="content">
 
-<div id="page-transfer" class="page">
-  <div class="page-header"><h1>🔄 轉移紀錄表</h1></div>
-  <div class="page-content">
+  <!-- ═══ DAILY ═══ -->
+
+  <div id="tab-daily" class="tab-content">
     <div class="card">
-      <div class="card-header">正在轉移的設備</div>
-      <div id="transferList"></div>
-    </div>
-  </div>
-</div>
-
-<!-- PAGE: 設備管理 -->
-
-<div id="page-manage" class="page">
-  <div class="page-header"><h1>⚙️ 設備管理</h1></div>
-  <div class="page-content">
-    <div class="card" style="padding:14px;">
-      <div style="font-weight:600;font-size:14px;margin-bottom:10px;">區域管理</div>
-      <div id="zoneList" class="chip-group" style="margin-bottom:10px;"></div>
-      <div style="display:flex;gap:8px;">
-        <input type="text" id="newZoneName" placeholder="新區域名稱..." style="flex:1;">
-        <button class="btn btn-primary btn-sm" onclick="addZone()">新增</button>
-      </div>
-    </div>
-    <div class="card" style="padding:14px;">
-      <div style="font-weight:600;font-size:14px;margin-bottom:10px;">新增設備</div>
-      <div class="form-group"><label>區域 (Zone)</label><select id="addEqZone"></select></div>
-      <div class="form-group"><label>名稱</label><input type="text" id="addEqName"></div>
-      <div class="form-group"><label>Common Name</label><input type="text" id="addEqCommon"></div>
-      <div class="form-group"><label>Location</label><input type="text" id="addEqLocation"></div>
-      <div class="form-group"><label>Asset ID</label><input type="text" id="addEqAsset"></div>
-      <div class="form-group"><label>Serial Number</label><input type="text" id="addEqSerial"></div>
-      <button class="btn btn-primary btn-block" onclick="addEquipment()">新增設備</button>
-    </div>
-    <div class="card" style="padding:14px;">
-      <div style="font-weight:600;font-size:14px;margin-bottom:10px;">批量匯入 / 匯出</div>
-      <button class="btn btn-outline btn-block mb-8" onclick="downloadTemplate()">📄 下載模板 CSV</button>
-      <label class="btn btn-primary btn-block" style="cursor:pointer;">
-        📥 匯入 CSV
-        <input type="file" accept=".csv" onchange="importCSV(event)" style="display:none;">
-      </label>
-    </div>
-    <div class="card">
-      <div class="card-header">
-        <span>所有設備</span>
-        <span id="totalEqCount" style="font-size:12px;color:var(--text-secondary);"></span>
-      </div>
-      <div>
-        <div style="padding:8px 14px;">
-          <input type="search" id="manageSearch" placeholder="搜尋設備..." oninput="renderManageList()">
+      <div class="fx g8 ac fw">
+        <div class="gr" style="min-width:160px">
+          <label class="fl">選擇日期</label>
+          <input type="date" id="dailyDate" class="fi" style="margin-bottom:0">
         </div>
-        <div id="manageEquipmentList"></div>
+        <div class="tar">
+          <div class="f12 cm">簽名狀態</div>
+          <div id="dailySigStatus" class="f22 w8 co">0/0</div>
+        </div>
       </div>
     </div>
+    <!-- Zone filter pills -->
+    <div class="zone-pills" id="dailyZonePills"></div>
+    <!-- Search -->
+    <div class="sw">
+      <span class="si-icon">🔍</span>
+      <input type="text" id="dailySearch" class="si" placeholder="搜尋設備名稱 / Asset ID...">
+      <button class="si-x hidden" id="dailySearchX">✕</button>
+    </div>
+    <div id="dailyZoneList"></div>
+    <button class="btn btn-pri btn-full mt8" style="padding:14px" onclick="exportMonthly()">
+      📊 匯出 <span id="exportMonth"></span> 月份報告 (Excel)
+    </button>
+  </div>
+
+  <!-- ═══ REMARKS ═══ -->
+
+  <div id="tab-remarks" class="tab-content hidden">
+    <div class="card">
+      <div class="fx g8 ac fw">
+        <div class="gr" style="min-width:160px">
+          <label class="fl">選擇日期</label>
+          <input type="date" id="remarksDate" class="fi" style="margin-bottom:0">
+        </div>
+        <div class="tar">
+          <div class="f12 cm">有 Remarks 設備</div>
+          <div id="remarksCount" class="f22 w8" style="color:var(--accent)">0</div>
+        </div>
+      </div>
+    </div>
+    <div class="zone-pills" id="remarksZonePills"></div>
+    <div id="remarksList"></div>
+  </div>
+
+  <!-- ═══ MAINT ═══ -->
+
+  <div id="tab-maint" class="tab-content hidden">
+    <div class="zone-pills" id="maintZonePills"></div>
+    <div id="maintList"></div>
+  </div>
+
+  <!-- ═══ TRANSFER ═══ -->
+
+  <div id="tab-transfer" class="tab-content hidden">
+    <div class="zone-pills" id="transZonePills"></div>
+    <div id="transferList"></div>
+  </div>
+
+  <!-- ═══ EQUIP ═══ -->
+
+  <div id="tab-equip" class="tab-content hidden">
+    <div class="fx g8 fw mb14">
+      <button class="btn btn-pri gr" style="min-width:100px" onclick="openEquipForm()">+ 新增設備</button>
+      <button class="btn btn-acc gr" style="min-width:100px" onclick="importCSV()">📄 匯入 CSV</button>
+      <button class="btn btn-gho gr" style="min-width:100px" onclick="downloadTemplate()">⬇ 下載模板</button>
+    </div>
+    <div class="zone-pills" id="equipZonePills"></div>
+    <div class="sw">
+      <span class="si-icon">🔍</span>
+      <input type="text" id="equipSearch" class="si" placeholder="搜尋設備名稱 / Asset ID...">
+      <button class="si-x hidden" id="equipSearchX">✕</button>
+    </div>
+    <div id="equipCount" class="f13 cm mb10"></div>
+    <div id="equipList"></div>
+  </div>
+
+  <!-- ═══ SETTINGS ═══ -->
+
+  <div id="tab-settings" class="tab-content hidden">
+    <div class="card">
+      <div class="w7 f14 mb12">📍 Zone 管理</div>
+      <div id="settingsZoneChips" class="fx g8 fw mb12"></div>
+      <button class="btn btn-pri btn-full" onclick="openZoneManager()">管理 Zones</button>
+    </div>
+    <div class="card">
+      <div class="w7 f14 mb12">📊 匯出報告</div>
+      <div class="f13 cm mb12">匯出選定月份的完整紀錄至 Excel</div>
+      <input type="month" id="settingsMonth" class="fi">
+      <button class="btn btn-acc btn-full" onclick="exportMonthly()">📥 匯出 Excel</button>
+    </div>
+    <div class="card">
+      <div class="w7 f14 mb12">📄 CSV 工具</div>
+      <div class="fx g8">
+        <button class="btn btn-gho gr" onclick="downloadTemplate()">⬇ 下載空白模板</button>
+        <button class="btn btn-pri gr" onclick="importCSV()">📄 匯入 CSV</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="w7 f14 mb6" style="color:var(--red)">⚠️ 清除所有設備</div>
+      <div class="f13 cm mb12">此操作不可還原</div>
+      <button class="btn btn-red btn-full" onclick="clearAllData()">清除全部資料</button>
+    </div>
+    <div class="tac" style="padding:24px;color:var(--ink3);font-size:11px">PT Equipment Management System v4.0 · Firebase Cloud</div>
   </div>
 </div>
 
-<!-- BOTTOM NAV -->
+<div id="modalBox"></div>
+<div id="sigBox"></div>
 
-<nav class="bottom-nav">
-  <button class="nav-item active" onclick="switchPage('daily')">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/><path d="m9 12 2 2 4-4"/></svg>
-    每日檢查
-  </button>
-  <button class="nav-item" onclick="switchPage('maintenance')">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
-    維修表
-  </button>
-  <button class="nav-item" onclick="switchPage('transfer')">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
-    轉移表
-  </button>
-  <button class="nav-item" onclick="switchPage('manage')">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-    設備管理
-  </button>
-</nav>
+<script>
+// ═══════════════════════════════════════════════
+//  FIREBASE
+// ═══════════════════════════════════════════════
+firebase.initializeApp({
+  apiKey:"AIzaSyAAhB67u8MOs4GStBg46M-FgTfCLms_mB8",
+  authDomain:"pca-machine-checking.firebaseapp.com",
+  projectId:"pca-machine-checking",
+  storageBucket:"pca-machine-checking.firebasestorage.app",
+  messagingSenderId:"132305266316",
+  appId:"1:132305266316:web:043bc5f5db66644d52bda9"
+});
+const db=firebase.firestore();
+db.enablePersistence({synchronizeTabs:true}).catch(e=>console.warn("Persistence:",e.code));
 
-<!-- MODAL -->
+/*
+  Firestore:
+  config/zones → {list:[...]}
+  equipment/{id} → {zone,name,commonName,location,assetId,serialNumber}
+  maintenance/{id} → {equipmentId,date,action,signature,completed,completedDate}
+  transfers/{id} → {equipmentId,sendDate,destination,signature,returned,returnedDate}
+  dailyChecks/{date} → {checks:{eqId:true},remarks:{eqId:"text"}}
+  signatures/{date} → {"Zone A":{img,time},...}
+*/
 
-<div id="modalOverlay" class="modal-overlay" onclick="if(event.target===this)closeModal()">
-  <div class="modal" id="modalContent"></div>
-</div>
+// ═══════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════
+const DEFAULT_ZONES=["Zone A","Zone B","Zone C","Consultation Room","4/F Storeroom","7/F IRA","8/F IRA"];
+let D={zones:[...DEFAULT_ZONES],equipment:[],maintenance:[],transfers:[]};
+let checksCache={},remarksCache={},sigsCache={};
+let loadCount=0;const LOAD_TARGET=4;
+// Zone filters per tab
+let dailyZoneFilter="all", maintZoneFilter="all", transZoneFilter="all", remarksZoneFilter="all", equipZoneFilter="all";
+// Remark debounce timers
+let remarkTimers={};
+// Separate cache for Remarks page date
+let remarksPageData={checks:{},remarks:{}};
 
-<!-- FIREBASE SDK -->
-
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-import { getFirestore, collection, doc, getDocs, getDoc, setDoc, deleteDoc, writeBatch, onSnapshot, query } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
-
-// ─── FIREBASE INIT ───
-const firebaseConfig = {
-  apiKey: "AIzaSyAAhB67u8MOs4GStBg46M-FgTfCLms_mB8",
-  authDomain: "pca-machine-checking.firebaseapp.com",
-  projectId: "pca-machine-checking",
-  storageBucket: "pca-machine-checking.firebasestorage.app",
-  messagingSenderId: "132305266316",
-  appId: "1:132305266316:web:043bc5f5db66644d52bda9"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-// ─── COLLECTIONS ───
-const COL = {
-  zones: 'pt_zones',
-  equipment: 'pt_equipment',
-  signatures: 'pt_signatures',
-  maintenance: 'pt_maintenance',
-  transfers: 'pt_transfers'
-};
-
-// ─── IN-MEMORY CACHE ───
-let DATA = {
-  zones: [],
-  equipment: [],
-  signatures: {},
-  maintenance: [],
-  transfers: []
-};
-
-// ─── FIRESTORE HELPERS ───
-async function fbSave(col, id, data) {
-  try {
-    await setDoc(doc(db, col, id), data);
-    showSync();
-  } catch(e) {
-    console.error('Save error:', e);
-    showSync(true);
+// ═══════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════
+function uid(){return Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4)}
+function fmt(d){if(!d)return"—";const p=d.split("-");return p[2]+"/"+p[1]+"/"+p[0]}
+function todayStr(){return new Date().toISOString().slice(0,10)}
+function esc(s){if(!s)return"";const d=document.createElement("div");d.textContent=s;return d.innerHTML}
+function $(id){return document.getElementById(id)}
+function getDate(){return $("dailyDate").value||todayStr()}
+function getMonth(){return getDate().slice(0,7)}
+function setSync(ok){$("syncDot").className=ok?"dot on":"dot";$("syncLabel").textContent=ok?"Connected":"Syncing"}
+function toast(msg){
+  const el=document.createElement("div");el.className="toast";el.textContent=msg;
+  document.body.appendChild(el);setTimeout(()=>{el.className="toast out";setTimeout(()=>el.remove(),300)},2200);
+}
+function markLoaded(){
+  loadCount++;
+  if(loadCount>=LOAD_TARGET){
+    const ls=$("loadingScreen");ls.classList.add("fade");setTimeout(()=>ls.style.display="none",500);
+    setSync(true);setupDateListeners(getDate());
   }
 }
 
-async function fbDelete(col, id) {
-  try {
-    await deleteDoc(doc(db, col, id));
-    showSync();
-  } catch(e) {
-    console.error('Delete error:', e);
-    showSync(true);
-  }
-}
+// ═══════════════════════════════════════════════
+//  FIRESTORE LISTENERS
+// ═══════════════════════════════════════════════
+db.collection("config").doc("zones").onSnapshot(doc=>{
+  if(doc.exists) D.zones=doc.data().list||DEFAULT_ZONES;
+  else db.collection("config").doc("zones").set({list:DEFAULT_ZONES});
+  markLoaded();renderAll();
+},e=>{console.error(e);markLoaded()});
 
-function showSync(error) {
-  const el = document.getElementById('syncIndicator');
-  el.textContent = error ? '⚠ 同步失敗' : '✓ 已同步';
-  el.className = 'sync-indicator show' + (error ? ' error' : '');
-  setTimeout(() => el.classList.remove('show'), 1500);
-}
+db.collection("equipment").orderBy("zone").onSnapshot(snap=>{
+  D.equipment=snap.docs.map(d=>({id:d.id,...d.data()}));
+  markLoaded();renderAll();
+},e=>{console.error(e);markLoaded()});
 
-// ─── REAL-TIME LISTENERS ───
-function setupListeners() {
-  // Zones
-  onSnapshot(collection(db, COL.zones), snap => {
-    DATA.zones = [];
-    snap.forEach(d => DATA.zones.push({ id: d.id, ...d.data() }));
-    DATA.zones.sort((a, b) => (a.order || 0) - (b.order || 0));
-    if (selectedZone === null && DATA.zones.length > 0) selectedZone = DATA.zones[0].name;
-    renderDailyPage();
-    renderManagePage();
+db.collection("maintenance").orderBy("date","desc").onSnapshot(snap=>{
+  D.maintenance=snap.docs.map(d=>({id:d.id,...d.data()}));
+  markLoaded();renderAll();
+},e=>{console.error(e);markLoaded()});
+
+db.collection("transfers").orderBy("sendDate","desc").onSnapshot(snap=>{
+  D.transfers=snap.docs.map(d=>({id:d.id,...d.data()}));
+  markLoaded();renderAll();
+},e=>{console.error(e);markLoaded()});
+
+let dateUnsubs={c:null,s:null};
+function setupDateListeners(date){
+  if(dateUnsubs.c)dateUnsubs.c();if(dateUnsubs.s)dateUnsubs.s();
+  dateUnsubs.c=db.collection("dailyChecks").doc(date).onSnapshot(doc=>{
+    const data=doc.exists?doc.data():{};
+    checksCache[date]=data.checks||{};
+    remarksCache[date]=data.remarks||{};
+    renderDaily();
   });
-
-  // Equipment
-  onSnapshot(collection(db, COL.equipment), snap => {
-    DATA.equipment = [];
-    snap.forEach(d => DATA.equipment.push({ id: d.id, ...d.data() }));
-    renderDailyPage();
-    renderManagePage();
-  });
-
-  // Signatures
-  onSnapshot(collection(db, COL.signatures), snap => {
-    DATA.signatures = {};
-    snap.forEach(d => { DATA.signatures[d.id] = d.data(); });
-    renderDailyPage();
-  });
-
-  // Maintenance
-  onSnapshot(collection(db, COL.maintenance), snap => {
-    DATA.maintenance = [];
-    snap.forEach(d => DATA.maintenance.push({ id: d.id, ...d.data() }));
-    renderDailyPage();
-    renderMaintenanceList();
-  });
-
-  // Transfers
-  onSnapshot(collection(db, COL.transfers), snap => {
-    DATA.transfers = [];
-    snap.forEach(d => DATA.transfers.push({ id: d.id, ...d.data() }));
-    renderDailyPage();
-    renderTransferList();
+  dateUnsubs.s=db.collection("signatures").doc(date).onSnapshot(doc=>{
+    sigsCache[date]=doc.exists?doc.data():{};
+    renderDaily();
   });
 }
 
-// ─── STATE ───
-let currentPage = 'daily';
-window.selectedZone = null;
-let calYear, calMonth;
-const today = new Date();
-const todayStr = fmt(today);
-
-function fmt(d) {
-  if (typeof d === 'string') return d;
-  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-}
-
-document.getElementById('checkDate').value = todayStr;
-calYear = today.getFullYear();
-calMonth = today.getMonth();
-
-// ─── NAVIGATION ───
-window.switchPage = function(page) {
-  currentPage = page;
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById('page-' + page).classList.add('active');
-  document.querySelectorAll('.nav-item').forEach((b, i) => {
-    b.classList.toggle('active', ['daily','maintenance','transfer','manage'][i] === page);
+// ═══════════════════════════════════════════════
+//  TABS
+// ═══════════════════════════════════════════════
+let curTab="daily";
+document.querySelectorAll(".tab-btn").forEach(b=>{
+  b.addEventListener("click",()=>{
+    curTab=b.dataset.tab;
+    document.querySelectorAll(".tab-btn").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");
+    document.querySelectorAll(".tab-content").forEach(c=>c.classList.add("hidden"));
+    $("tab-"+curTab).classList.remove("hidden");
+    renderAll();
   });
-};
+});
 
-// ─── TOAST ───
-function toast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2000);
+// ═══════════════════════════════════════════════
+//  COMPUTED
+// ═══════════════════════════════════════════════
+function equipByZone(){
+  const m={};D.zones.forEach(z=>{m[z]=[]});
+  D.equipment.forEach(e=>{if(!m[e.zone])m[e.zone]=[];m[e.zone].push(e)});return m;
 }
-window.toast = toast;
+function activeMaintIds(){return new Set(D.maintenance.filter(m=>!m.completed).map(m=>m.equipmentId))}
+function activeTransferIds(){return new Set(D.transfers.filter(t=>!t.returned).map(t=>t.equipmentId))}
 
-// ─── MODAL ───
-window.openModal = function(html) {
-  document.getElementById('modalContent').innerHTML = html;
-  document.getElementById('modalOverlay').classList.add('show');
-  document.body.style.overflow = 'hidden';
-};
-window.closeModal = function() {
-  document.getElementById('modalOverlay').classList.remove('show');
-  document.body.style.overflow = '';
-};
+// ═══════════════════════════════════════════════
+//  ZONE PILLS RENDERER
+// ═══════════════════════════════════════════════
+function renderZonePills(containerId,current,setter){
+  let h=`<button class="zpill ${current==='all'?'active':''}" onclick="${setter}('all')">全部</button>`;
+  D.zones.forEach(z=>{
+    h+=`<button class="zpill ${current===z?'active':''}" onclick="${setter}('${esc(z)}')">${esc(z)}</button>`;
+  });
+  $(containerId).innerHTML=h;
+}
 
-// ─── SIGNATURE PAD ───
-window.initSigPad = function(canvasId) {
-  setTimeout(() => {
-    const canvas = document.getElementById(canvasId);
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const rect = canvas.parentElement.getBoundingClientRect();
-    canvas.width = rect.width - 4;
-    canvas.height = 150;
-    ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 2;
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    let drawing = false;
-    function getPos(e) {
-      const r = canvas.getBoundingClientRect();
-      const t = e.touches ? e.touches[0] : e;
-      return [t.clientX - r.left, t.clientY - r.top];
+// ═══════════════════════════════════════════════
+//  MODAL & SIGNATURE PAD
+// ═══════════════════════════════════════════════
+function openModal(title,body,wide){
+  $("modalBox").innerHTML=`<div class="overlay" onclick="closeModal()"><div class="modal ${wide?'modal-w':''}" onclick="event.stopPropagation()">
+    <div class="mh"><div class="mt-t">${title}</div><button class="mt-x" onclick="closeModal()">✕</button></div>
+    <div id="mBody">${body}</div></div></div>`;
+}
+function closeModal(){$("modalBox").innerHTML=""}
+
+let _sigCv,_sigCx,_sigDr=false,_sigLt=null,_sigRes=null;
+function openSignPad(label){
+  return new Promise(resolve=>{
+    _sigRes=resolve;
+    $("sigBox").innerHTML=`<div class="sig-ov" onclick="_sigCancel()"><div class="sig-box" onclick="event.stopPropagation()">
+      <div class="w7 f14" style="margin-bottom:3px">${esc(label)}</div>
+      <div class="f12 cm mb12">請在下方空白處簽名</div>
+      <canvas id="sigCv" class="sig-cv"></canvas>
+      <div class="sig-acts">
+        <button class="btn btn-gho" onclick="_sigClear()">清除</button>
+        <button class="btn btn-gho" onclick="_sigCancel()">取消</button>
+        <button class="btn btn-pri" onclick="_sigSave()">確認簽名</button>
+      </div></div></div>`;
+    _sigCv=$("sigCv");_sigCx=_sigCv.getContext("2d");
+    _sigCv.width=_sigCv.offsetWidth*2;_sigCv.height=_sigCv.offsetHeight*2;
+    _sigCx.scale(2,2);_sigCx.strokeStyle="#141825";_sigCx.lineWidth=2;_sigCx.lineCap="round";_sigCx.lineJoin="round";
+    _sigDr=false;_sigLt=null;
+    _sigCv.addEventListener("mousedown",_sS);_sigCv.addEventListener("mousemove",_sM);
+    _sigCv.addEventListener("mouseup",_sE);_sigCv.addEventListener("mouseleave",_sE);
+    _sigCv.addEventListener("touchstart",_sS,{passive:false});_sigCv.addEventListener("touchmove",_sM,{passive:false});_sigCv.addEventListener("touchend",_sE);
+  });
+}
+function _sP(e){const r=_sigCv.getBoundingClientRect();const t=e.touches?e.touches[0]:e;return{x:t.clientX-r.left,y:t.clientY-r.top}}
+function _sS(e){e.preventDefault();_sigDr=true;_sigLt=_sP(e)}
+function _sM(e){if(!_sigDr)return;e.preventDefault();const p=_sP(e);_sigCx.beginPath();_sigCx.moveTo(_sigLt.x,_sigLt.y);_sigCx.lineTo(p.x,p.y);_sigCx.stroke();_sigLt=p}
+function _sE(){_sigDr=false;_sigLt=null}
+function _sigClear(){_sigCx.clearRect(0,0,_sigCv.width,_sigCv.height)}
+function _sigCancel(){$("sigBox").innerHTML="";if(_sigRes){_sigRes(null);_sigRes=null}}
+function _sigSave(){
+  const px=_sigCx.getImageData(0,0,_sigCv.width,_sigCv.height).data;
+  let blank=true;for(let i=3;i<px.length;i+=4){if(px[i]>0){blank=false;break}}
+  if(blank){alert("請先簽名！");return}
+  const img=_sigCv.toDataURL("image/png");
+  $("sigBox").innerHTML="";if(_sigRes){_sigRes(img);_sigRes=null}
+}
+
+// ═══════════════════════════════════════════════
+//  RENDER: DAILY CHECK
+// ═══════════════════════════════════════════════
+function setDailyZone(z){dailyZoneFilter=z;renderDaily()}
+
+function renderDaily(){
+  const date=getDate(),checks=checksCache[date]||{},remarks=remarksCache[date]||{},sigs=sigsCache[date]||{};
+  const bz=equipByZone(),mIds=activeMaintIds(),tIds=activeTransferIds();
+  const sv=($("dailySearch").value||"").toLowerCase().trim();
+
+  // Zone pills
+  renderZonePills("dailyZonePills",dailyZoneFilter,"setDailyZone");
+
+  // Determine which zones to show
+  const showZones=dailyZoneFilter==="all"?D.zones:[dailyZoneFilter];
+
+  const sc=D.zones.filter(z=>sigs[z]).length;
+  const el=$("dailySigStatus");
+  el.textContent=sc+"/"+D.zones.length;
+  el.className=sc===D.zones.length&&D.zones.length>0?"f22 w8 cg":"f22 w8 co";
+  $("exportMonth").textContent=getMonth();
+  $("dailySearchX").classList.toggle("hidden",!sv);
+
+  let h="";
+  showZones.forEach(zone=>{
+    if(!bz[zone])return;
+    let eq=bz[zone]||[];
+    if(sv)eq=eq.filter(e=>e.name.toLowerCase().includes(sv)||e.commonName.toLowerCase().includes(sv)||e.assetId.toLowerCase().includes(sv));
+    if(sv&&!eq.length)return;
+    const allC=eq.length>0&&eq.every(e=>checks[e.id]);
+    const signed=sigs[zone];
+
+    h+=`<div class="card ${signed?'bdr-green':'bdr-gray'}">`;
+    h+=`<div class="fx jb ac mb12"><div><div class="w8 f14">${esc(zone)}</div><div class="f12 cm">${eq.length} 件設備</div></div>
+      <div>${signed?'<span class="badge bg-green">✓ 已簽</span>':'<span class="badge bg-orange">未完成</span>'}</div></div>`;
+
+    if(eq.length>0){
+      h+=`<button class="btn btn-gho btn-full mb10" style="padding:11px;font-size:13px;${allC?'color:#067a52;font-weight:800':''}" onclick="checkAllZone('${esc(zone)}')">
+        ${allC?'✓ 全部已檢查 — 取消全選':'☐ 一鍵全選 Check All'}</button>`;
     }
-    function start(e) { e.preventDefault(); drawing = true; const [x,y] = getPos(e); ctx.beginPath(); ctx.moveTo(x,y); }
-    function move(e) { if (!drawing) return; e.preventDefault(); const [x,y] = getPos(e); ctx.lineTo(x,y); ctx.stroke(); }
-    function end() { drawing = false; }
-    canvas.addEventListener('mousedown', start);
-    canvas.addEventListener('mousemove', move);
-    canvas.addEventListener('mouseup', end);
-    canvas.addEventListener('mouseleave', end);
-    canvas.addEventListener('touchstart', start, { passive: false });
-    canvas.addEventListener('touchmove', move, { passive: false });
-    canvas.addEventListener('touchend', end);
-  }, 50);
-};
 
-window.clearSigPad = function(canvasId) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-  canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-};
-
-function getSigData(canvasId) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas) return null;
-  const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
-  const hasContent = data.some((v, i) => i % 4 === 3 && v > 0);
-  return hasContent ? canvas.toDataURL('image/png') : null;
-}
-
-function esc(str) { return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-
-// ─── DAILY CHECK PAGE ───
-function renderDailyPage() {
-  renderZoneChips();
-  renderSignStatus();
-  renderEquipmentList();
-  renderCalendar();
-}
-window.renderDailyPage = renderDailyPage;
-
-function renderZoneChips() {
-  const zoneNames = DATA.zones.map(z => z.name);
-  if (!zoneNames.includes(selectedZone)) selectedZone = zoneNames[0] || null;
-  document.getElementById('zoneChips').innerHTML = zoneNames.map(z =>
-    `<div class="chip ${z === selectedZone ? 'active' : ''}" onclick="selectedZone='${z.replace(/'/g,"\\'")}';renderDailyPage()">${z}</div>`
-  ).join('');
-}
-
-function renderSignStatus() {
-  const date = document.getElementById('checkDate').value;
-  const key = date + '|' + selectedZone;
-  const signed = DATA.signatures[key];
-  const container = document.getElementById('signStatus');
-  if (signed) {
-    container.innerHTML = `
-      <div class="sign-bar">
-        <div>
-          <div class="sign-bar-text" style="color:var(--success);">✅ 已簽名</div>
-          <img src="${signed.signature}" class="sig-preview" style="margin-top:4px;">
+    eq.forEach(e=>{
+      const c=!!checks[e.id],hm=mIds.has(e.id),ht=tIds.has(e.id);
+      const rm=remarks[e.id]||"";
+      h+=`<div class="eqr">
+        <div class="chk ${c?'on':''}" onclick="toggleChk('${e.id}')" style="margin-top:2px">${c?'✓':''}</div>
+        <div class="gr mw0">
+          <div class="fx ac g6 fw" style="font-weight:600;font-size:13px">
+            <span class="oe">${esc(e.name)}</span>
+            ${hm?'<span class="badge bg-red" style="font-size:10px">🔧 維修中</span>':''}
+            ${ht?'<span class="badge bg-blue" style="font-size:10px">🔄 轉移中</span>':''}
+          </div>
+          <div class="f11 cm">${esc(e.commonName)} · ${esc(e.assetId)}</div>
+          <div class="f11 cm">Location: ${esc(e.location)} · SN: ${esc(e.serialNumber)}</div>
+          <input class="remark-input" placeholder="Remarks..." value="${esc(rm)}" onchange="saveRemark('${e.id}',this.value)" oninput="debouncedRemark('${e.id}',this.value)">
+          <div class="eq-actions">
+            <button class="btn-xs btn-xs-red" onclick="openMaintFormFor('${e.id}')">🔧 維修</button>
+            <button class="btn-xs btn-xs-blue" onclick="openTransFormFor('${e.id}')">🔄 轉移</button>
+          </div>
         </div>
-        <button class="btn btn-danger btn-xs" onclick="cancelSignature('${key}')">取消簽名</button>
       </div>`;
-  } else {
-    container.innerHTML = `
-      <div class="sign-bar unsigned">
-        <div class="sign-bar-text" style="color:var(--danger);">⬜ 未簽名</div>
-        <button class="btn btn-success btn-sm" onclick="openSignModal()">✅ 簽名確認 (全區)</button>
-      </div>`;
+    });
+
+    // Signature area with edit/cancel
+    if(eq.length>0){
+      if(signed){
+        h+=`<div class="sig-area signed">
+          <div class="fx ac jb">
+            <div class="fx ac g8"><img src="${signed.img}" class="sigp"><span class="f12 w7 cg">已簽名確認</span></div>
+            <div class="fx g4">
+              <button class="btn-xs" onclick="resignZone('${esc(zone)}')">✏️ 重簽</button>
+              <button class="btn-xs btn-xs-del" onclick="cancelSig('${esc(zone)}')">✕ 取消</button>
+            </div>
+          </div>
+        </div>`;
+      } else {
+        h+=`<button class="btn btn-pri btn-full mt10" onclick="signZone('${esc(zone)}')">✍️ 簽名確認 ${esc(zone)}</button>`;
+      }
+    }
+    h+=`</div>`;
+  });
+
+  if(!D.equipment.length){
+    h=`<div class="card"><div class="empty"><i>📦</i><div>尚無設備資料</div><div class="f12" style="margin-top:4px">請到「設備管理」新增設備或匯入 CSV</div></div></div>`;
   }
+  $("dailyZoneList").innerHTML=h;
 }
 
-function renderEquipmentList() {
-  const search = document.getElementById('dailySearch').value.toLowerCase();
-  let filtered = DATA.equipment.filter(e => e.zone === selectedZone);
-  if (search) {
-    filtered = filtered.filter(e =>
-      (e.name||'').toLowerCase().includes(search) ||
-      (e.commonName||'').toLowerCase().includes(search) ||
-      (e.assetId||'').toLowerCase().includes(search)
-    );
+// ── Daily actions ──
+function checkAllZone(zone){
+  const date=getDate(),checks={...(checksCache[date]||{})};
+  const eq=(equipByZone()[zone]||[]);
+  const all=eq.every(e=>checks[e.id]);
+  eq.forEach(e=>{if(all)delete checks[e.id];else checks[e.id]=true});
+  checksCache[date]=checks;renderDaily();
+  db.collection("dailyChecks").doc(date).set({checks,remarks:remarksCache[date]||{}},{merge:false}).catch(console.error);
+}
+
+function toggleChk(id){
+  const date=getDate(),checks={...(checksCache[date]||{})};
+  if(checks[id])delete checks[id];else checks[id]=true;
+  checksCache[date]=checks;renderDaily();
+  db.collection("dailyChecks").doc(date).set({checks,remarks:remarksCache[date]||{}},{merge:false}).catch(console.error);
+}
+
+function debouncedRemark(eqId,val){
+  clearTimeout(remarkTimers[eqId]);
+  remarkTimers[eqId]=setTimeout(()=>saveRemark(eqId,val),600);
+}
+
+function saveRemark(eqId,val){
+  clearTimeout(remarkTimers[eqId]);
+  const date=getDate();
+  const remarks={...(remarksCache[date]||{})};
+  if(val.trim())remarks[eqId]=val.trim();else delete remarks[eqId];
+  remarksCache[date]=remarks;
+  db.collection("dailyChecks").doc(date).set({checks:checksCache[date]||{},remarks},{merge:false}).catch(console.error);
+}
+
+async function signZone(zone){
+  const img=await openSignPad("簽名確認 — "+zone+" · "+fmt(getDate()));
+  if(!img)return;
+  db.collection("signatures").doc(getDate()).set({[zone]:{img,time:new Date().toISOString()}},{merge:true})
+    .then(()=>toast("已簽名 ✓")).catch(console.error);
+}
+
+async function resignZone(zone){
+  const img=await openSignPad("重新簽名 — "+zone+" · "+fmt(getDate()));
+  if(!img)return;
+  db.collection("signatures").doc(getDate()).set({[zone]:{img,time:new Date().toISOString()}},{merge:true})
+    .then(()=>toast("已重新簽名 ✓")).catch(console.error);
+}
+
+function cancelSig(zone){
+  if(!confirm("確定取消「"+zone+"」的簽名？"))return;
+  const date=getDate();
+  // Use FieldValue.delete() to remove the zone field
+  db.collection("signatures").doc(date).update({
+    [zone]:firebase.firestore.FieldValue.delete()
+  }).then(()=>toast("已取消簽名")).catch(console.error);
+}
+
+// ═══════════════════════════════════════════════
+//  RENDER: MAINTENANCE (with zone filter + delete)
+// ═══════════════════════════════════════════════
+function setMaintZone(z){maintZoneFilter=z;renderMaint()}
+
+function renderMaint(){
+  renderZonePills("maintZonePills",maintZoneFilter,"setMaintZone");
+
+  let list=D.maintenance;
+  if(maintZoneFilter!=="all"){
+    const eqIds=new Set(D.equipment.filter(e=>e.zone===maintZoneFilter).map(e=>e.id));
+    list=list.filter(m=>eqIds.has(m.equipmentId));
   }
-  document.getElementById('eqCount').textContent = `設備列表 (${filtered.length})`;
-  if (filtered.length === 0) {
-    document.getElementById('equipmentList').innerHTML = '<div class="empty-state"><p>此區域暫無設備</p></div>';
+
+  if(!list.length){
+    $("maintList").innerHTML=`<div class="card"><div class="empty"><i>🔧</i><div>暫無維修紀錄</div></div></div>`;return;
+  }
+  let h="";
+  list.forEach(m=>{
+    const eq=D.equipment.find(e=>e.id===m.equipmentId);
+    h+=`<div class="card ${m.completed?'bdr-green dim':'bdr-red'}">
+      <div class="fx jb as mb6">
+        <div><div class="w7 f14">${esc(eq?.name||'未知設備')}</div><div class="f12 cm">${esc(eq?.assetId||'')} · ${esc(eq?.zone||'')}</div></div>
+        <div class="fx g4 ac">
+          <span class="badge ${m.completed?'bg-green':'bg-red'}">${m.completed?'已完成':'維修中'}</span>
+          <button class="btn-xs btn-xs-del" onclick="deleteMaint('${m.id}')">🗑</button>
+        </div>
+      </div>
+      <div class="adet"><strong>Action:</strong> ${esc(m.action)}</div>
+      <div class="fx jb ac f12 cm"><span>日期: ${fmt(m.date)}</span>${m.completedDate?'<span>完成: '+fmt(m.completedDate)+'</span>':''}</div>
+      ${m.signature?'<div class="mt8"><img src="'+m.signature+'" class="sigp"></div>':''}
+      ${!m.completed?'<button class="btn btn-grn btn-full mt10" onclick="completeMaint(\''+m.id+'\')">✓ 維修完成</button>':''}
+    </div>`;
+  });
+  $("maintList").innerHTML=h;
+}
+
+function completeMaint(id){
+  db.collection("maintenance").doc(id).update({completed:true,completedDate:todayStr()})
+    .then(()=>toast("維修完成 ✓")).catch(console.error);
+}
+
+function deleteMaint(id){
+  if(!confirm("確定刪除此維修紀錄？"))return;
+  db.collection("maintenance").doc(id).delete().then(()=>toast("已刪除")).catch(console.error);
+}
+
+// ═══════════════════════════════════════════════
+//  RENDER: TRANSFERS (with zone filter + delete)
+// ═══════════════════════════════════════════════
+function setTransZone(z){transZoneFilter=z;renderTransfers()}
+
+function renderTransfers(){
+  renderZonePills("transZonePills",transZoneFilter,"setTransZone");
+
+  let list=D.transfers;
+  if(transZoneFilter!=="all"){
+    const eqIds=new Set(D.equipment.filter(e=>e.zone===transZoneFilter).map(e=>e.id));
+    list=list.filter(t=>eqIds.has(t.equipmentId));
+  }
+
+  if(!list.length){
+    $("transferList").innerHTML=`<div class="card"><div class="empty"><i>🔄</i><div>暫無轉移紀錄</div></div></div>`;return;
+  }
+  let h="";
+  list.forEach(t=>{
+    const eq=D.equipment.find(e=>e.id===t.equipmentId);
+    h+=`<div class="card ${t.returned?'bdr-green dim':'bdr-blue'}">
+      <div class="fx jb as mb6">
+        <div><div class="w7 f14">${esc(eq?.name||'未知設備')}</div><div class="f12 cm">${esc(eq?.assetId||'')} · ${esc(eq?.zone||'')}</div></div>
+        <div class="fx g4 ac">
+          <span class="badge ${t.returned?'bg-green':'bg-blue'}">${t.returned?'已歸還':'轉移中'}</span>
+          <button class="btn-xs btn-xs-del" onclick="deleteTrans('${t.id}')">🗑</button>
+        </div>
+      </div>
+      <div class="adet"><strong>目的地:</strong> ${esc(t.destination)}</div>
+      <div class="fx jb ac f12 cm"><span>送出: ${fmt(t.sendDate)}</span>${t.returnedDate?'<span>歸還: '+fmt(t.returnedDate)+'</span>':''}</div>
+      ${t.signature?'<div class="mt8"><img src="'+t.signature+'" class="sigp"></div>':''}
+      ${!t.returned?'<button class="btn btn-grn btn-full mt10" onclick="returnTrans(\''+t.id+'\')">✓ 已歸還</button>':''}
+    </div>`;
+  });
+  $("transferList").innerHTML=h;
+}
+
+function returnTrans(id){
+  db.collection("transfers").doc(id).update({returned:true,returnedDate:todayStr()})
+    .then(()=>toast("已歸還 ✓")).catch(console.error);
+}
+
+function deleteTrans(id){
+  if(!confirm("確定刪除此轉移紀錄？"))return;
+  db.collection("transfers").doc(id).delete().then(()=>toast("已刪除")).catch(console.error);
+}
+
+// ═══════════════════════════════════════════════
+//  RENDER: EQUIPMENT
+// ═══════════════════════════════════════════════
+function setEquipZone(z){equipZoneFilter=z;renderEquip()}
+
+function renderEquip(){
+  renderZonePills("equipZonePills",equipZoneFilter,"setEquipZone");
+  const sv=($("equipSearch").value||"").toLowerCase().trim();
+  $("equipSearchX").classList.toggle("hidden",!sv);
+  let list=D.equipment;
+  if(equipZoneFilter!=="all") list=list.filter(e=>e.zone===equipZoneFilter);
+  if(sv)list=list.filter(e=>e.name.toLowerCase().includes(sv)||e.commonName.toLowerCase().includes(sv)||e.assetId.toLowerCase().includes(sv));
+  $("equipCount").textContent=`共 ${list.length} 件設備${equipZoneFilter!=="all"?' ('+equipZoneFilter+')':''}${sv?' (搜尋中)':''}`;
+  if(!list.length&&!D.equipment.length){
+    $("equipList").innerHTML=`<div class="card"><div class="empty"><i>📦</i><div>開始新增設備或匯入 CSV 吧！</div></div></div>`;return;
+  }
+  if(!list.length){
+    $("equipList").innerHTML=`<div class="card"><div class="empty"><i>🔍</i><div>無符合條件的設備</div></div></div>`;return;
+  }
+  let h="";
+  list.forEach(eq=>{
+    h+=`<div class="card"><div class="fx jb as">
+      <div class="gr mw0">
+        <div class="w7 f14">${esc(eq.name)}</div>
+        <div class="f12 cm" style="margin-top:2px">${esc(eq.commonName)}</div>
+        <div class="fx g6 fw mt8"><span class="badge bg-ink">${esc(eq.zone)}</span><span class="badge bg-gray">${esc(eq.location)}</span></div>
+        <div class="f11 cm mt6">Asset: ${esc(eq.assetId)} · SN: ${esc(eq.serialNumber)}</div>
+      </div>
+      <div class="fx g4 s0">
+        <button class="btn btn-gho btn-sm" onclick="openEquipForm('${eq.id}')">✏️</button>
+        <button class="btn btn-sm btn-xs-del" onclick="deleteEquip('${eq.id}')">🗑</button>
+      </div>
+    </div></div>`;
+  });
+  $("equipList").innerHTML=h;
+}
+
+function deleteEquip(id){
+  if(!confirm("確定刪除此設備？"))return;
+  db.collection("equipment").doc(id).delete().then(()=>toast("已刪除")).catch(console.error);
+}
+
+// ═══════════════════════════════════════════════
+//  RENDER: SETTINGS
+// ═══════════════════════════════════════════════
+function renderSettings(){
+  let h="";D.zones.forEach(z=>{h+=`<span class="zchip">${esc(z)}</span>`});
+  $("settingsZoneChips").innerHTML=h;
+  $("settingsMonth").value=getMonth();
+}
+
+function renderAll(){renderDaily();renderRemarks();renderMaint();renderTransfers();renderEquip();renderSettings()}
+
+// ═══════════════════════════════════════════════
+//  RENDER: REMARKS PAGE
+// ═══════════════════════════════════════════════
+function getRemarksDate(){return $("remarksDate")?.value||todayStr()}
+function setRemarksZone(z){remarksZoneFilter=z;renderRemarks()}
+
+async function loadRemarksForDate(date){
+  try{
+    const doc=await db.collection("dailyChecks").doc(date).get();
+    if(doc.exists){const d=doc.data();remarksPageData={checks:d.checks||{},remarks:d.remarks||{}}}
+    else remarksPageData={checks:{},remarks:{}};
+  }catch(e){console.error(e);remarksPageData={checks:{},remarks:{}};}
+  renderRemarks();
+}
+
+function renderRemarks(){
+  const dateEl=$("remarksDate");
+  if(!dateEl)return;
+  const date=getRemarksDate();
+
+  // If this date matches the daily tab date, use live cache; otherwise use separately fetched data
+  let remarks,checks;
+  if(date===getDate()){
+    remarks=remarksCache[date]||{};
+    checks=checksCache[date]||{};
+  } else {
+    remarks=remarksPageData.remarks||{};
+    checks=remarksPageData.checks||{};
+  }
+
+  renderZonePills("remarksZonePills",remarksZoneFilter,"setRemarksZone");
+
+  // Filter equipment that has a remark on this date
+  const remarkedEqs=D.equipment.filter(e=>remarks[e.id]&&remarks[e.id].trim());
+  let filtered=remarkedEqs;
+  if(remarksZoneFilter!=="all") filtered=filtered.filter(e=>e.zone===remarksZoneFilter);
+
+  $("remarksCount").textContent=remarkedEqs.length;
+
+  if(!filtered.length){
+    $("remarksList").innerHTML=`<div class="card"><div class="empty"><i>📝</i><div>${remarkedEqs.length===0?'此日期沒有任何 Remarks':'此區域沒有 Remarks'}</div>
+      <div class="f12" style="margin-top:4px">${remarkedEqs.length===0?'當設備在每日檢查中填寫 Remarks 後會顯示於此':'請選擇其他區域'}</div></div></div>`;
     return;
   }
-  document.getElementById('equipmentList').innerHTML = filtered.map(eq => {
-    const mRec = DATA.maintenance.find(m => m.eqId === eq.id && !m.completed);
-    const tRec = DATA.transfers.find(t => t.eqId === eq.id && !t.returned);
-    let badges = '';
-    if (mRec) badges += '<span class="badge badge-maintenance">🔧 維修中</span> ';
-    if (tRec) badges += '<span class="badge badge-transfer">🔄 已轉移</span> ';
-    let extraBtns = '';
-    if (mRec) extraBtns += `<button class="btn btn-success btn-xs" onclick="completeMaintenance('${mRec.id}')">✅ 維修完成</button>`;
-    if (tRec) extraBtns += `<button class="btn btn-purple btn-xs" onclick="returnTransfer('${tRec.id}')">↩️ 已歸還</button>`;
-    return `
-    <div class="eq-item">
-      <div class="eq-item-name">${esc(eq.name)} ${badges}</div>
-      <div class="eq-item-sub">
-        ${eq.commonName ? esc(eq.commonName)+' · ' : ''}${eq.location ? esc(eq.location)+' · ' : ''}Asset: ${esc(eq.assetId||'—')} · SN: ${esc(eq.serialNumber||'—')}
-        ${eq.remarks ? '<br>備註: '+esc(eq.remarks) : ''}
-      </div>
-      <div class="eq-item-actions">
-        <button class="btn btn-warning btn-xs" onclick="openMaintenanceModal('${eq.id}')">🔧 維修</button>
-        <button class="btn btn-purple btn-xs" onclick="openTransferModal('${eq.id}')">🔄 轉移</button>
-        <button class="btn btn-outline btn-xs" onclick="openEditEqModal('${eq.id}')">✏️ 修改</button>
-        ${extraBtns}
-      </div>
-    </div>`;
-  }).join('');
-}
-window.renderEquipmentList = renderEquipmentList;
 
-// ─── SIGN / UNSIGN ───
-window.openSignModal = function() {
-  const date = document.getElementById('checkDate').value;
-  openModal(`
-    <div class="modal-title"><span>✅ 簽名確認 — ${selectedZone}</span><button class="modal-close" onclick="closeModal()">✕</button></div>
-    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;">日期：${date}<br>確認已檢查 <b>${selectedZone}</b> 所有設備</p>
-    <div class="sig-container"><canvas id="sigPadDaily"></canvas></div>
-    <div class="sig-actions">
-      <button class="btn btn-outline btn-sm" onclick="clearSigPad('sigPadDaily')">清除</button>
-      <button class="btn btn-success btn-sm" onclick="submitDailySign()">確認簽名</button>
+  // Group by zone
+  const byZone={};
+  filtered.forEach(e=>{if(!byZone[e.zone])byZone[e.zone]=[];byZone[e.zone].push(e)});
+
+  let h="";
+  Object.keys(byZone).forEach(zone=>{
+    h+=`<div class="card">
+      <div class="fx ac g8 mb12"><div class="w8 f14">${esc(zone)}</div><span class="badge bg-orange">${byZone[zone].length} remarks</span></div>`;
+    byZone[zone].forEach(e=>{
+      const rm=remarks[e.id]||"";
+      const c=!!checks[e.id];
+      h+=`<div style="padding:10px 0;border-top:1px solid #f3f4f7">
+        <div class="fx ac g8 mb6">
+          <span class="badge ${c?'bg-green':'bg-red'}" style="font-size:10px">${c?'✓ Checked':'✗ Unchecked'}</span>
+          <span class="w6 f13">${esc(e.name)}</span>
+        </div>
+        <div class="f12 cm mb6">${esc(e.commonName)} · ${esc(e.assetId)}</div>
+        <div style="padding:8px 12px;background:#fff8ec;border-left:3px solid var(--orange);border-radius:0 var(--rs) var(--rs) 0;font-size:13px;color:var(--ink)">
+          ${esc(rm)}
+        </div>
+      </div>`;
+    });
+    h+=`</div>`;
+  });
+  $("remarksList").innerHTML=h;
+}
+
+// ═══════════════════════════════════════════════
+//  EQUIPMENT FORM
+// ═══════════════════════════════════════════════
+function openEquipForm(editId){
+  const eq=editId?D.equipment.find(e=>e.id===editId):null;
+  const isE=!!eq;
+  const zo=D.zones.map(z=>`<option value="${esc(z)}"${eq&&eq.zone===z?' selected':''}>${esc(z)}</option>`).join('');
+  openModal(isE?"編輯設備":"新增設備",`
+    <label class="fl">Zone</label><select id="eqZone" class="fsel">${zo}</select>
+    <label class="fl">名稱</label><input class="fi" id="eqName" placeholder="e.g. Ultrasound Therapy Unit" value="${esc(eq?.name||'')}">
+    <label class="fl">Common Name</label><input class="fi" id="eqCommon" placeholder="e.g. 超聲波治療儀" value="${esc(eq?.commonName||'')}">
+    <label class="fl">Location</label><input class="fi" id="eqLoc" placeholder="e.g. Room 3" value="${esc(eq?.location||'')}">
+    <label class="fl">Asset ID</label><input class="fi" id="eqAsset" placeholder="e.g. PT-2024-001" value="${esc(eq?.assetId||'')}">
+    <label class="fl">Serial Number</label><input class="fi" id="eqSerial" placeholder="e.g. SN123456" value="${esc(eq?.serialNumber||'')}">
+    <button class="btn btn-pri btn-full mt8" onclick="saveEquip('${editId||''}')">${isE?'儲存修改':'新增設備'}</button>`);
+}
+
+function saveEquip(editId){
+  const n=$("eqName").value.trim(),a=$("eqAsset").value.trim();
+  if(!n||!a){alert("請填寫名稱和Asset ID");return}
+  const obj={zone:$("eqZone").value,name:n,commonName:$("eqCommon").value.trim(),location:$("eqLoc").value.trim(),assetId:a,serialNumber:$("eqSerial").value.trim()};
+  const p=editId?db.collection("equipment").doc(editId).update(obj):db.collection("equipment").doc(uid()).set(obj);
+  p.then(()=>{toast(editId?"已更新 ✓":"已新增 ✓");closeModal()}).catch(e=>{alert("儲存失敗: "+e.message)});
+}
+
+// ═══════════════════════════════════════════════
+//  MAINTENANCE FORM — triggered from equipment row
+// ═══════════════════════════════════════════════
+let _mSig=null;
+
+function openMaintFormFor(eqId){
+  _mSig=null;
+  _renderMF(eqId);
+}
+
+function _renderMF(eqId,dtV,actV){
+  const eq=D.equipment.find(e=>e.id===eqId);
+  if(!eq){alert("找不到設備");return}
+  const sigH=_mSig
+    ?`<div class="mb12"><div class="fl">助理簽名 ✓</div><img src="${_mSig}" class="sigp"></div>`
+    :`<button class="btn btn-gho btn-full mb12" onclick="_mOpenSig('${eqId}')">✍️ 助理簽名</button>`;
+  openModal("新增維修紀錄",`
+    <div class="card" style="margin-bottom:16px;background:#fafbfd">
+      <div class="w7 f14">${esc(eq.name)}</div>
+      <div class="f12 cm">${esc(eq.commonName)} · ${esc(eq.assetId)}</div>
+      <div class="mt6"><span class="badge bg-ink">${esc(eq.zone)}</span></div>
     </div>
-  `);
-  initSigPad('sigPadDaily');
-};
+    <label class="fl">日期</label><input type="date" id="mDate" class="fi" value="${dtV||getDate()}">
+    <label class="fl">Action (維修內容)</label><input class="fi" id="mAction" placeholder="e.g. 更換探頭" value="${esc(actV||'')}">
+    <div id="mSigA">${sigH}</div>
+    <button class="btn btn-red btn-full" onclick="_mSave('${eqId}')">確認新增維修紀錄</button>`);
+}
 
-window.submitDailySign = async function() {
-  const sig = getSigData('sigPadDaily');
-  if (!sig) { toast('請先簽名'); return; }
-  const date = document.getElementById('checkDate').value;
-  const key = date + '|' + selectedZone;
-  await fbSave(COL.signatures, key, { signature: sig, date, zone: selectedZone });
-  closeModal();
-  toast('簽名成功');
-};
+async function _mOpenSig(eqId){
+  const dV=$("mDate").value,aV=$("mAction").value;
+  const img=await openSignPad("助理簽名 — 維修紀錄");
+  if(img)_mSig=img;
+  _renderMF(eqId,dV,aV);
+}
 
-window.cancelSignature = async function(key) {
-  if (!confirm('確定取消此簽名？')) return;
-  await fbDelete(COL.signatures, key);
-  toast('已取消簽名');
-};
+function _mSave(eqId){
+  const action=$("mAction").value.trim();
+  if(!action){alert("請填寫維修內容");return}
+  if(!_mSig){alert("請先簽名");return}
+  db.collection("maintenance").doc(uid()).set({
+    equipmentId:eqId,date:$("mDate").value,action,signature:_mSig,completed:false,completedDate:null
+  }).then(()=>{toast("維修紀錄已新增");_mSig=null;closeModal()}).catch(e=>alert("儲存失敗: "+e.message));
+}
 
-// ─── MAINTENANCE ───
-window.openMaintenanceModal = function(eqId) {
-  const eq = DATA.equipment.find(e => e.id === eqId);
-  openModal(`
-    <div class="modal-title"><span>🔧 維修申請</span><button class="modal-close" onclick="closeModal()">✕</button></div>
-    <p style="font-size:13px;margin-bottom:12px;">設備：<b>${esc(eq.name)}</b> (${esc(eq.assetId||'—')})</p>
-    <div class="form-group"><label>維修事項</label><textarea id="maintDesc" placeholder="請輸入維修事項..."></textarea></div>
+// ═══════════════════════════════════════════════
+//  TRANSFER FORM — triggered from equipment row
+// ═══════════════════════════════════════════════
+let _tSig=null;
 
-```
-<div style="font-size:13px;font-weight:600;margin-bottom:4px;">助理簽名</div>
-<div class="sig-container"><canvas id="sigPadMaint"></canvas></div>
-<div class="sig-actions">
-  <button class="btn btn-outline btn-sm" onclick="clearSigPad('sigPadMaint')">清除</button>
-  <button class="btn btn-warning btn-sm" onclick="submitMaintenance('${eqId}')">提交維修</button>
-</div>
-```
+function openTransFormFor(eqId){
+  _tSig=null;
+  _renderTF(eqId);
+}
 
-`);
-initSigPad(‘sigPadMaint’);
-};
+function _renderTF(eqId,dtV,dstV){
+  const eq=D.equipment.find(e=>e.id===eqId);
+  if(!eq){alert("找不到設備");return}
+  const sigH=_tSig
+    ?`<div class="mb12"><div class="fl">助理簽名 ✓</div><img src="${_tSig}" class="sigp"></div>`
+    :`<button class="btn btn-gho btn-full mb12" onclick="_tOpenSig('${eqId}')">✍️ 助理簽名</button>`;
+  openModal("新增轉移紀錄",`
+    <div class="card" style="margin-bottom:16px;background:#fafbfd">
+      <div class="w7 f14">${esc(eq.name)}</div>
+      <div class="f12 cm">${esc(eq.commonName)} · ${esc(eq.assetId)}</div>
+      <div class="mt6"><span class="badge bg-ink">${esc(eq.zone)}</span></div>
+    </div>
+    <label class="fl">送出日期</label><input type="date" id="tDate" class="fi" value="${dtV||getDate()}">
+    <label class="fl">目的地</label><input class="fi" id="tDest" placeholder="e.g. 9/F Ward B" value="${esc(dstV||'')}">
+    <div id="tSigA">${sigH}</div>
+    <button class="btn btn-blu btn-full" onclick="_tSave('${eqId}')">確認新增轉移紀錄</button>`);
+}
 
-window.submitMaintenance = async function(eqId) {
-const desc = document.getElementById(‘maintDesc’).value.trim();
-if (!desc) { toast(‘請輸入維修事項’); return; }
-const sig = getSigData(‘sigPadMaint’);
-if (!sig) { toast(‘請先簽名’); return; }
-const id = ‘M’ + Date.now();
-await fbSave(COL.maintenance, id, {
-eqId, description: desc, signature: sig,
-date: document.getElementById(‘checkDate’).value,
-completed: false, completedSig: null, completedDate: null
+async function _tOpenSig(eqId){
+  const dV=$("tDate").value,dsV=$("tDest").value;
+  const img=await openSignPad("助理簽名 — 轉移紀錄");
+  if(img)_tSig=img;
+  _renderTF(eqId,dV,dsV);
+}
+
+function _tSave(eqId){
+  const dest=$("tDest").value.trim();
+  if(!dest){alert("請填寫目的地");return}
+  if(!_tSig){alert("請先簽名");return}
+  db.collection("transfers").doc(uid()).set({
+    equipmentId:eqId,sendDate:$("tDate").value,destination:dest,signature:_tSig,returned:false,returnedDate:null
+  }).then(()=>{toast("轉移紀錄已新增");_tSig=null;closeModal()}).catch(e=>alert("儲存失敗: "+e.message));
+}
+
+// ═══════════════════════════════════════════════
+//  ZONE MANAGER
+// ═══════════════════════════════════════════════
+function saveZones(){db.collection("config").doc("zones").set({list:D.zones}).catch(console.error)}
+function openZoneManager(){_renderZM()}
+function _renderZM(){
+  const bz=equipByZone();let rows="";
+  D.zones.forEach((z,i)=>{
+    rows+=`<div class="fx ac g8 mb10">
+      <div class="gr" style="padding:9px 12px;background:#f5f6f9;border-radius:8px;font-size:13px;font-weight:500">${esc(z)}</div>
+      <button class="btn btn-gho btn-sm" onclick="editZone(${i})">✏️</button>
+      <button class="btn btn-sm btn-xs-del" onclick="deleteZone(${i})">🗑</button>
+    </div>`;
+  });
+  openModal("管理 Zones",`${rows}<div class="fx g8 mt12">
+    <input class="fi" id="newZN" placeholder="新增 Zone 名稱" style="margin-bottom:0;flex:1">
+    <button class="btn btn-pri" onclick="addZone()">+ 新增</button></div>`);
+}
+function addZone(){const n=$("newZN").value.trim();if(!n||D.zones.includes(n))return;D.zones.push(n);saveZones();_renderZM()}
+function editZone(i){const o=D.zones[i],n=prompt("修改 Zone 名稱:",o);if(!n||!n.trim()||n.trim()===o)return;const t=n.trim();D.zones[i]=t;saveZones();D.equipment.filter(e=>e.zone===o).forEach(e=>{db.collection("equipment").doc(e.id).update({zone:t}).catch(console.error)});_renderZM()}
+function deleteZone(i){const bz=equipByZone(),z=D.zones[i];if(bz[z]&&bz[z].length){alert(`此 Zone 尚有 ${bz[z].length} 件設備`);return}D.zones.splice(i,1);saveZones();_renderZM()}
+
+// ═══════════════════════════════════════════════
+//  CSV
+// ═══════════════════════════════════════════════
+function parseCSVLine(line){const r=[];let c="",q=false;for(let i=0;i<line.length;i++){const ch=line[i];if(q){if(ch==='"'&&line[i+1]==='"'){c+='"';i++}else if(ch==='"')q=false;else c+=ch}else{if(ch==='"')q=true;else if(ch===','){r.push(c);c=""}else c+=ch}}r.push(c);return r}
+
+async function importCSV(){
+  const inp=document.createElement("input");inp.type="file";inp.accept=".csv";
+  inp.onchange=async e=>{
+    const f=e.target.files[0];if(!f)return;const text=await f.text();
+    const lines=text.split(/\r?\n/).filter(l=>l.trim());
+    if(lines.length<2){alert("CSV 無資料行");return}
+    const hd=lines[0].replace(/[\ufeff]/g,"").split(",").map(h=>h.trim().toLowerCase());
+    const fi=(...ns)=>hd.findIndex(h=>ns.includes(h));
+    const zI=fi("zone"),nI=fi("名稱","name"),cI=fi("common name","commonname","common_name");
+    const lI=fi("location"),aI=fi("asset id","assetid","asset_id"),sI=fi("serial number","serialnumber","serial_number");
+    if([zI,nI,cI,lI,aI,sI].some(x=>x<0)){alert("CSV 欄位不符");return}
+    const items=[];
+    for(let i=1;i<lines.length;i++){const cols=parseCSVLine(lines[i]);if(cols.length<6)continue;items.push({zone:cols[zI].trim(),name:cols[nI].trim(),commonName:cols[cI].trim(),location:cols[lI].trim(),assetId:cols[aI].trim(),serialNumber:cols[sI].trim()})}
+    if(!items.length){alert("無有效資料");return}
+    for(let s=0;s<items.length;s+=450){const batch=db.batch();items.slice(s,s+450).forEach(item=>{batch.set(db.collection("equipment").doc(uid()),item)});await batch.commit()}
+    const nz=[...new Set(items.map(i=>i.zone))].filter(z=>!D.zones.includes(z));
+    if(nz.length){D.zones.push(...nz);saveZones()}
+    toast(`成功匯入 ${items.length} 件設備！`);
+  };inp.click();
+}
+
+function downloadTemplate(){
+  const b=new Blob(["\ufeffZone,名稱,Common Name,Location,Asset ID,Serial Number\n"],{type:"text/csv;charset=utf-8;"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="equipment_template.csv";a.click();URL.revokeObjectURL(a.href);
+}
+
+// ═══════════════════════════════════════════════
+//  EXCEL EXPORT (with Remarks column)
+// ═══════════════════════════════════════════════
+async function exportMonthly(){
+  const mo=getMonth(),yr=+mo.slice(0,4),mn=+mo.slice(5,7),days=new Date(yr,mn,0).getDate();
+  toast("正在匯出...");
+  const startD=mo+"-01",endD=mo+"-31";
+  const [cSnap,sSnap]=await Promise.all([
+    db.collection("dailyChecks").where(firebase.firestore.FieldPath.documentId(),">=",startD).where(firebase.firestore.FieldPath.documentId(),"<=",endD).get(),
+    db.collection("signatures").where(firebase.firestore.FieldPath.documentId(),">=",startD).where(firebase.firestore.FieldPath.documentId(),"<=",endD).get()
+  ]);
+  const aC={},aS={};
+  cSnap.forEach(d=>{const dd=d.data();aC[d.id]={checks:dd.checks||{},remarks:dd.remarks||{}}});
+  sSnap.forEach(d=>{aS[d.id]=d.data()});
+
+  const r1=[["日期","Zone","設備名稱","Common Name","Asset ID","檢查狀態","Remarks","Zone簽名狀態"]];
+  for(let d=1;d<=days;d++){
+    const dt=`${mo}-${String(d).padStart(2,"0")}`;
+    const dc=aC[dt]||{checks:{},remarks:{}};const sg=aS[dt]||{};
+    D.equipment.forEach(eq=>{
+      r1.push([fmt(dt),eq.zone,eq.name,eq.commonName,eq.assetId,dc.checks[eq.id]?"✓":"✗",dc.remarks[eq.id]||"",sg[eq.zone]?"已簽":"未簽"]);
+    });
+  }
+  const ws1=XLSX.utils.aoa_to_sheet(r1);
+
+  const r2=[["日期","設備名稱","Asset ID","Zone","維修動作","狀態","完成日期"]];
+  D.maintenance.filter(m=>m.date&&m.date.startsWith(mo)).forEach(m=>{
+    const eq=D.equipment.find(e=>e.id===m.equipmentId);
+    r2.push([fmt(m.date),eq?.name||"—",eq?.assetId||"—",eq?.zone||"—",m.action,m.completed?"已完成":"進行中",m.completedDate?fmt(m.completedDate):"—"]);
+  });
+  const ws2=XLSX.utils.aoa_to_sheet(r2);
+
+  const r3=[["送出日期","設備名稱","Asset ID","Zone","目的地","狀態","歸還日期"]];
+  D.transfers.filter(t=>t.sendDate&&t.sendDate.startsWith(mo)).forEach(t=>{
+    const eq=D.equipment.find(e=>e.id===t.equipmentId);
+    r3.push([fmt(t.sendDate),eq?.name||"—",eq?.assetId||"—",eq?.zone||"—",t.destination,t.returned?"已歸還":"轉移中",t.returnedDate?fmt(t.returnedDate):"—"]);
+  });
+  const ws3=XLSX.utils.aoa_to_sheet(r3);
+
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws1,"每日檢查");XLSX.utils.book_append_sheet(wb,ws2,"維修紀錄");XLSX.utils.book_append_sheet(wb,ws3,"轉移紀錄");
+  [ws1,ws2,ws3].forEach(ws=>{const ref=ws["!ref"];if(!ref)return;const rng=XLSX.utils.decode_range(ref),cols=[];for(let c=rng.s.c;c<=rng.e.c;c++){let mx=10;for(let r=rng.s.r;r<=rng.e.r;r++){const cl=ws[XLSX.utils.encode_cell({r,c})];if(cl&&cl.v)mx=Math.max(mx,String(cl.v).length*1.6)}cols.push({wch:Math.min(mx,32)})}ws["!cols"]=cols});
+  XLSX.writeFile(wb,`PT設備管理_${mo}.xlsx`);toast("Excel 已下載 ✓");
+}
+
+// ═══════════════════════════════════════════════
+//  CLEAR ALL
+// ═══════════════════════════════════════════════
+async function clearAllData(){
+  if(!confirm("確定清除所有資料？不可還原！"))return;
+  if(!confirm("再次確認：真的要刪除？"))return;
+  toast("正在清除...");
+  for(const col of ["equipment","maintenance","transfers","dailyChecks","signatures"]){
+    const snap=await db.collection(col).get();
+    for(let s=0;s<snap.docs.length;s+=450){const batch=db.batch();snap.docs.slice(s,s+450).forEach(d=>batch.delete(d.ref));await batch.commit()}
+  }
+  toast("已清除全部資料");
+}
+
+// ═══════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════
+$("dailyDate").value=todayStr();
+$("remarksDate").value=todayStr();
+$("settingsMonth").value=todayStr().slice(0,7);
+$("dailySearch").addEventListener("input",renderDaily);
+$("equipSearch").addEventListener("input",renderEquip);
+$("dailyDate").addEventListener("change",()=>{setupDateListeners(getDate());renderDaily()});
+$("remarksDate").addEventListener("change",()=>{
+  const rd=getRemarksDate();
+  if(rd===getDate()) renderRemarks();
+  else loadRemarksForDate(rd);
 });
-closeModal(); toast(‘已提交維修’);
-};
-
-window.completeMaintenance = function(mId) {
-openModal(`<div class="modal-title"><span>✅ 維修完成</span><button class="modal-close" onclick="closeModal()">✕</button></div> <div style="font-size:13px;font-weight:600;margin-bottom:4px;">助理簽名</div> <div class="sig-container"><canvas id="sigPadMaintDone"></canvas></div> <div class="sig-actions"> <button class="btn btn-outline btn-sm" onclick="clearSigPad('sigPadMaintDone')">清除</button> <button class="btn btn-success btn-sm" onclick="doCompleteMaint('${mId}')">確認完成</button> </div>`);
-initSigPad(‘sigPadMaintDone’);
-};
-
-window.doCompleteMaint = async function(mId) {
-const sig = getSigData(‘sigPadMaintDone’);
-if (!sig) { toast(‘請先簽名’); return; }
-const rec = DATA.maintenance.find(m => m.id === mId);
-if (!rec) return;
-await fbSave(COL.maintenance, mId, { …rec, completed: true, completedSig: sig, completedDate: fmt(new Date()) });
-closeModal(); toast(‘維修已完成’);
-};
-
-// ─── TRANSFER ───
-window.openTransferModal = function(eqId) {
-const eq = DATA.equipment.find(e => e.id === eqId);
-openModal(`<div class="modal-title"><span>🔄 轉移申請</span><button class="modal-close" onclick="closeModal()">✕</button></div> <p style="font-size:13px;margin-bottom:12px;">設備：<b>${esc(eq.name)}</b> (${esc(eq.assetId||'—')})</p> <div class="form-group"><label>轉移事項</label><textarea id="transDesc" placeholder="請輸入轉移原因..."></textarea></div> <div class="form-group"><label>目的地</label><input type="text" id="transDest" placeholder="轉移到邊度..."></div> <div style="font-size:13px;font-weight:600;margin-bottom:4px;">助理簽名</div> <div class="sig-container"><canvas id="sigPadTrans"></canvas></div> <div class="sig-actions"> <button class="btn btn-outline btn-sm" onclick="clearSigPad('sigPadTrans')">清除</button> <button class="btn btn-purple btn-sm" onclick="submitTransfer('${eqId}')">提交轉移</button> </div>`);
-initSigPad(‘sigPadTrans’);
-};
-
-window.submitTransfer = async function(eqId) {
-const desc = document.getElementById(‘transDesc’).value.trim();
-const dest = document.getElementById(‘transDest’).value.trim();
-if (!desc) { toast(‘請輸入轉移事項’); return; }
-if (!dest) { toast(‘請輸入目的地’); return; }
-const sig = getSigData(‘sigPadTrans’);
-if (!sig) { toast(‘請先簽名’); return; }
-const id = ‘T’ + Date.now();
-await fbSave(COL.transfers, id, {
-eqId, description: desc, destination: dest, signature: sig,
-date: document.getElementById(‘checkDate’).value,
-returned: false, returnedSig: null, returnedDate: null
-});
-closeModal(); toast(‘已提交轉移’);
-};
-
-window.returnTransfer = function(tId) {
-openModal(`<div class="modal-title"><span>↩️ 確認歸還</span><button class="modal-close" onclick="closeModal()">✕</button></div> <div style="font-size:13px;font-weight:600;margin-bottom:4px;">助理簽名</div> <div class="sig-container"><canvas id="sigPadReturn"></canvas></div> <div class="sig-actions"> <button class="btn btn-outline btn-sm" onclick="clearSigPad('sigPadReturn')">清除</button> <button class="btn btn-purple btn-sm" onclick="doReturn('${tId}')">確認歸還</button> </div>`);
-initSigPad(‘sigPadReturn’);
-};
-
-window.doReturn = async function(tId) {
-const sig = getSigData(‘sigPadReturn’);
-if (!sig) { toast(‘請先簽名’); return; }
-const rec = DATA.transfers.find(t => t.id === tId);
-if (!rec) return;
-await fbSave(COL.transfers, tId, { …rec, returned: true, returnedSig: sig, returnedDate: fmt(new Date()) });
-closeModal(); toast(‘設備已歸還’);
-};
-
-// ─── EDIT EQUIPMENT ───
-window.openEditEqModal = function(eqId) {
-const eq = DATA.equipment.find(e => e.id === eqId);
-const zoneOpts = DATA.zones.map(z => `<option value="${esc(z.name)}" ${z.name===eq.zone?'selected':''}>${esc(z.name)}</option>`).join(’’);
-openModal(`<div class="modal-title"><span>✏️ 修改設備</span><button class="modal-close" onclick="closeModal()">✕</button></div> <div class="form-group"><label>區域 (Zone)</label><select id="editZone">${zoneOpts}</select></div> <div class="form-group"><label>名稱</label><input type="text" id="editName" value="${esc(eq.name)}"></div> <div class="form-group"><label>Common Name</label><input type="text" id="editCommon" value="${esc(eq.commonName||'')}"></div> <div class="form-group"><label>Location</label><input type="text" id="editLocation" value="${esc(eq.location||'')}"></div> <div class="form-group"><label>Asset ID</label><input type="text" id="editAsset" value="${esc(eq.assetId||'')}"></div> <div class="form-group"><label>Serial Number</label><input type="text" id="editSerial" value="${esc(eq.serialNumber||'')}"></div> <div class="form-group"><label>Remarks</label><textarea id="editRemarks">${esc(eq.remarks||'')}</textarea></div> <div style="display:flex;gap:8px;"> <button class="btn btn-primary" style="flex:1;" onclick="saveEditEq('${eqId}')">儲存</button> <button class="btn btn-danger" onclick="deleteEquipment('${eqId}')">刪除</button> </div>`);
-};
-
-window.saveEditEq = async function(eqId) {
-const data = {
-zone: document.getElementById(‘editZone’).value,
-name: document.getElementById(‘editName’).value.trim(),
-commonName: document.getElementById(‘editCommon’).value.trim(),
-location: document.getElementById(‘editLocation’).value.trim(),
-assetId: document.getElementById(‘editAsset’).value.trim(),
-serialNumber: document.getElementById(‘editSerial’).value.trim(),
-remarks: document.getElementById(‘editRemarks’).value.trim()
-};
-await fbSave(COL.equipment, eqId, data);
-closeModal(); toast(‘已儲存’);
-};
-
-window.deleteEquipment = async function(eqId) {
-if (!confirm(‘確定刪除此設備？’)) return;
-await fbDelete(COL.equipment, eqId);
-closeModal(); toast(‘已刪除設備’);
-};
-
-// ─── CALENDAR ───
-window.changeCalMonth = function(delta) {
-calMonth += delta;
-if (calMonth < 0) { calMonth = 11; calYear–; }
-if (calMonth > 11) { calMonth = 0; calYear++; }
-renderCalendar();
-};
-
-function renderCalendar() {
-const monthNames = [‘1月’,‘2月’,‘3月’,‘4月’,‘5月’,‘6月’,‘7月’,‘8月’,‘9月’,‘10月’,‘11月’,‘12月’];
-document.getElementById(‘calMonthLabel’).textContent = `${calYear}年 ${monthNames[calMonth]}`;
-const dayHeaders = [‘日’,‘一’,‘二’,‘三’,‘四’,‘五’,‘六’];
-const firstDay = new Date(calYear, calMonth, 1).getDay();
-const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-const now = new Date();
-let html = dayHeaders.map(d => `<div class="cal-header">${d}</div>`).join(’’);
-for (let i = 0; i < firstDay; i++) html += ‘<div class="cal-day empty"></div>’;
-const zoneNames = DATA.zones.map(z => z.name);
-for (let d = 1; d <= daysInMonth; d++) {
-const dateStr = calYear + ‘-’ + String(calMonth+1).padStart(2,‘0’) + ‘-’ + String(d).padStart(2,‘0’);
-const dayDate = new Date(calYear, calMonth, d);
-const isToday = dateStr === todayStr;
-const isFuture = dayDate > now;
-const allSigned = zoneNames.length > 0 && zoneNames.every(z => DATA.signatures[dateStr + ‘|’ + z]);
-let cls = ‘cal-day’;
-if (isFuture) cls += ’ future’;
-else if (allSigned) cls += ’ signed’;
-else if (dayDate <= now) cls += ’ unsigned’;
-if (isToday) cls += ’ today’;
-html += `<div class="${cls}">${d}</div>`;
-}
-document.getElementById(‘calendarGrid’).innerHTML = html;
-}
-
-// ─── MAINTENANCE LIST ───
-function renderMaintenanceList() {
-const records = DATA.maintenance.filter(m => !m.completed);
-const container = document.getElementById(‘maintenanceList’);
-if (records.length === 0) {
-container.innerHTML = ‘<div class="empty-state"><p>暫無維修中設備</p></div>’;
-return;
-}
-container.innerHTML = records.map(m => {
-const eq = DATA.equipment.find(e => e.id === m.eqId);
-return ` <div class="record-item"> <div style="font-weight:600;font-size:14px;">${eq ? esc(eq.name) : '未知設備'}</div> <div class="eq-item-sub"> ${eq ? 'Zone: '+esc(eq.zone)+' · Asset: '+esc(eq.assetId||'—') : ''}<br> 日期: ${m.date}<br>事項: ${esc(m.description)} </div> <div style="margin-top:6px;"><img src="${m.signature}" class="sig-preview"></div> <div style="margin-top:8px;display:flex;gap:6px;"> <button class="btn btn-success btn-xs" onclick="completeMaintenance('${m.id}')">✅ 維修完成</button> <button class="btn btn-danger btn-xs" onclick="deleteMaintenanceRecord('${m.id}')">🗑️ 刪除</button> </div> </div>`;
-}).join(’’);
-}
-
-window.deleteMaintenanceRecord = async function(mId) {
-if (!confirm(‘確定刪除此維修紀錄？’)) return;
-await fbDelete(COL.maintenance, mId);
-toast(‘已刪除’);
-};
-
-// ─── TRANSFER LIST ───
-function renderTransferList() {
-const records = DATA.transfers.filter(t => !t.returned);
-const container = document.getElementById(‘transferList’);
-if (records.length === 0) {
-container.innerHTML = ‘<div class="empty-state"><p>暫無轉移中設備</p></div>’;
-return;
-}
-container.innerHTML = records.map(t => {
-const eq = DATA.equipment.find(e => e.id === t.eqId);
-return ` <div class="record-item"> <div style="font-weight:600;font-size:14px;">${eq ? esc(eq.name) : '未知設備'}</div> <div class="eq-item-sub"> ${eq ? 'Zone: '+esc(eq.zone)+' · Asset: '+esc(eq.assetId||'—') : ''}<br> 日期: ${t.date}<br>事項: ${esc(t.description)}<br>目的地: <b>${esc(t.destination)}</b> </div> <div style="margin-top:6px;"><img src="${t.signature}" class="sig-preview"></div> <div style="margin-top:8px;display:flex;gap:6px;"> <button class="btn btn-purple btn-xs" onclick="returnTransfer('${t.id}')">↩️ 已歸還</button> <button class="btn btn-danger btn-xs" onclick="deleteTransferRecord('${t.id}')">🗑️ 刪除</button> </div> </div>`;
-}).join(’’);
-}
-
-window.deleteTransferRecord = async function(tId) {
-if (!confirm(‘確定刪除此轉移紀錄？’)) return;
-await fbDelete(COL.transfers, tId);
-toast(‘已刪除’);
-};
-
-// ─── MANAGE PAGE ───
-function renderManagePage() {
-renderZoneManagement();
-renderAddEqZoneSelect();
-renderManageList();
-}
-
-function renderZoneManagement() {
-document.getElementById(‘zoneList’).innerHTML = DATA.zones.map(z =>
-`<div class="zone-tag"> <span>${esc(z.name)}</span> <button onclick="editZoneAction('${z.id}','${esc(z.name)}')" title="編輯">✏️</button> <button onclick="removeZone('${z.id}','${esc(z.name)}')" title="刪除">✕</button> </div>`
-).join(’’);
-}
-
-window.addZone = async function() {
-const name = document.getElementById(‘newZoneName’).value.trim();
-if (!name) return;
-if (DATA.zones.some(z => z.name === name)) { toast(‘區域已存在’); return; }
-const id = ‘Z’ + Date.now();
-await fbSave(COL.zones, id, { name, order: DATA.zones.length });
-document.getElementById(‘newZoneName’).value = ‘’;
-toast(‘已新增區域’);
-};
-
-window.editZoneAction = async function(zoneId, oldName) {
-const newName = prompt(‘修改區域名稱:’, oldName);
-if (!newName || newName.trim() === ‘’ || newName.trim() === oldName) return;
-const trimmed = newName.trim();
-
-// Update zone doc
-const zoneDoc = DATA.zones.find(z => z.id === zoneId);
-if (zoneDoc) await fbSave(COL.zones, zoneId, { …zoneDoc, name: trimmed });
-
-// Update all equipment in this zone
-const batch = writeBatch(db);
-DATA.equipment.filter(e => e.zone === oldName).forEach(e => {
-batch.update(doc(db, COL.equipment, e.id), { zone: trimmed });
-});
-
-// Update signatures (delete old key, create new key)
-Object.entries(DATA.signatures).forEach(([key, val]) => {
-if (key.includes(’|’ + oldName)) {
-const newKey = key.replace(’|’ + oldName, ‘|’ + trimmed);
-batch.delete(doc(db, COL.signatures, key));
-batch.set(doc(db, COL.signatures, newKey), { …val, zone: trimmed });
-}
-});
-
-await batch.commit();
-if (selectedZone === oldName) selectedZone = trimmed;
-showSync();
-toast(‘已更新區域名稱’);
-};
-
-window.removeZone = async function(zoneId, zoneName) {
-if (!confirm(`確定刪除區域「${zoneName}」？該區域嘅設備都會被刪除。`)) return;
-const batch = writeBatch(db);
-batch.delete(doc(db, COL.zones, zoneId));
-DATA.equipment.filter(e => e.zone === zoneName).forEach(e => {
-batch.delete(doc(db, COL.equipment, e.id));
-});
-await batch.commit();
-if (selectedZone === zoneName) selectedZone = DATA.zones.find(z => z.name !== zoneName)?.name || null;
-showSync();
-toast(‘已刪除區域’);
-};
-
-function renderAddEqZoneSelect() {
-document.getElementById(‘addEqZone’).innerHTML = DATA.zones.map(z => `<option value="${esc(z.name)}">${esc(z.name)}</option>`).join(’’);
-}
-
-window.addEquipment = async function() {
-const zone = document.getElementById(‘addEqZone’).value;
-const name = document.getElementById(‘addEqName’).value.trim();
-if (!name) { toast(‘請輸入設備名稱’); return; }
-const id = ‘E’ + Date.now() + Math.random().toString(36).substr(2, 4);
-await fbSave(COL.equipment, id, {
-zone, name,
-commonName: document.getElementById(‘addEqCommon’).value.trim(),
-location: document.getElementById(‘addEqLocation’).value.trim(),
-assetId: document.getElementById(‘addEqAsset’).value.trim(),
-serialNumber: document.getElementById(‘addEqSerial’).value.trim(),
-remarks: ‘’
-});
-[‘addEqName’,‘addEqCommon’,‘addEqLocation’,‘addEqAsset’,‘addEqSerial’].forEach(id => document.getElementById(id).value = ‘’);
-toast(‘已新增設備’);
-};
-
-function renderManageList() {
-const search = document.getElementById(‘manageSearch’) ? document.getElementById(‘manageSearch’).value.toLowerCase() : ‘’;
-let filtered = DATA.equipment;
-if (search) {
-filtered = filtered.filter(e =>
-(e.name||’’).toLowerCase().includes(search) ||
-(e.commonName||’’).toLowerCase().includes(search) ||
-(e.assetId||’’).toLowerCase().includes(search) ||
-(e.zone||’’).toLowerCase().includes(search)
-);
-}
-document.getElementById(‘totalEqCount’).textContent = `共 ${DATA.equipment.length} 部`;
-const container = document.getElementById(‘manageEquipmentList’);
-if (filtered.length === 0) {
-container.innerHTML = ‘<div class="empty-state"><p>暫無設備</p></div>’;
-return;
-}
-let html = ‘’;
-DATA.zones.forEach(z => {
-const items = filtered.filter(e => e.zone === z.name);
-if (items.length === 0) return;
-html += `<div style="padding:8px 14px;background:var(--bg);font-size:12px;font-weight:600;color:var(--text-secondary);">${esc(z.name)} (${items.length})</div>`;
-items.forEach(eq => {
-html += ` <div class="eq-item" style="padding:10px 14px;"> <div class="flex-between"> <div> <div style="font-weight:600;font-size:13px;">${esc(eq.name)}</div> <div style="font-size:11px;color:var(--text-secondary);">${esc(eq.commonName||'')} · ${esc(eq.assetId||'—')}</div> </div> <button class="btn btn-outline btn-xs" onclick="openEditEqModal('${eq.id}')">✏️</button> </div> </div>`;
-});
-});
-container.innerHTML = html;
-}
-window.renderManageList = renderManageList;
-
-// ─── CSV ───
-window.downloadTemplate = function() {
-const headers = ‘Zone,名稱,Common Name,Location,Asset ID,Serial Number’;
-const blob = new Blob([’\uFEFF’ + headers + ‘\n’], { type: ‘text/csv;charset=utf-8;’ });
-const a = document.createElement(‘a’); a.href = URL.createObjectURL(blob);
-a.download = ‘equipment_template.csv’; a.click();
-toast(‘已下載模板’);
-};
-
-window.importCSV = async function(event) {
-const file = event.target.files[0];
-if (!file) return;
-const text = await file.text();
-const lines = text.split(/\r?\n/).filter(l => l.trim());
-if (lines.length < 2) { toast(‘CSV 無數據’); return; }
-const header = parseCSVLine(lines[0]);
-const colMap = {};
-header.forEach((h, i) => {
-const hl = h.trim().toLowerCase();
-if (hl === ‘zone’) colMap.zone = i;
-else if (hl === ‘名稱’ || hl === ‘name’) colMap.name = i;
-else if (hl.includes(‘common’)) colMap.commonName = i;
-else if (hl === ‘location’) colMap.location = i;
-else if (hl.includes(‘asset’)) colMap.assetId = i;
-else if (hl.includes(‘serial’)) colMap.serialNumber = i;
-});
-
-const existingZones = DATA.zones.map(z => z.name);
-let count = 0;
-const batch = writeBatch(db);
-
-for (let i = 1; i < lines.length; i++) {
-const cols = parseCSVLine(lines[i]);
-if (cols.length < 2) continue;
-const zone = (cols[colMap.zone] || ‘’).trim();
-const name = (cols[colMap.name] || ‘’).trim();
-if (!name) continue;
-
-```
-// Auto add zone
-if (zone && !existingZones.includes(zone)) {
-  existingZones.push(zone);
-  const zId = 'Z' + Date.now() + i;
-  batch.set(doc(db, COL.zones, zId), { name: zone, order: DATA.zones.length + existingZones.length });
-}
-
-const eqId = 'E' + Date.now() + Math.random().toString(36).substr(2, 6) + i;
-batch.set(doc(db, COL.equipment, eqId), {
-  zone: zone || existingZones[0] || 'Zone A',
-  name, commonName: (cols[colMap.commonName] || '').trim(),
-  location: (cols[colMap.location] || '').trim(),
-  assetId: (cols[colMap.assetId] || '').trim(),
-  serialNumber: (cols[colMap.serialNumber] || '').trim(),
-  remarks: ''
-});
-count++;
-```
-
-}
-
-await batch.commit();
-showSync();
-toast(`已匯入 ${count} 部設備`);
-event.target.value = ‘’;
-};
-
-function parseCSVLine(line) {
-const result = []; let current = ‘’; let inQuotes = false;
-for (let i = 0; i < line.length; i++) {
-const ch = line[i];
-if (inQuotes) {
-if (ch === ‘”’ && line[i+1] === ‘”’) { current += ‘”’; i++; }
-else if (ch === ‘”’) inQuotes = false;
-else current += ch;
-} else {
-if (ch === ‘”’) inQuotes = true;
-else if (ch === ‘,’) { result.push(current); current = ‘’; }
-else current += ch;
-}
-}
-result.push(current); return result;
-}
-
-// ─── EXPORT ───
-window.exportMonthly = function() {
-const date = document.getElementById(‘checkDate’).value;
-const [y, m] = date.split(’-’);
-const year = parseInt(y), month = parseInt(m);
-const daysInMonth = new Date(year, month, 0).getDate();
-const zoneNames = DATA.zones.map(z => z.name);
-const bom = ‘\uFEFF’;
-let csv = bom;
-let headers = [‘Zone’,‘名稱’,‘Common Name’,‘Location’,‘Asset ID’,‘Serial Number’,‘Remarks’];
-for (let d = 1; d <= daysInMonth; d++) headers.push(d + ‘日’);
-headers.push(‘維修紀錄’,‘轉移紀錄’);
-csv += headers.map(h => `"${h}"`).join(’,’) + ‘\n’;
-
-zoneNames.forEach(zone => {
-DATA.equipment.filter(e => e.zone === zone).forEach(eq => {
-let row = [eq.zone, eq.name, eq.commonName, eq.location, eq.assetId, eq.serialNumber, eq.remarks];
-for (let d = 1; d <= daysInMonth; d++) {
-const ds = year + ‘-’ + String(month).padStart(2,‘0’) + ‘-’ + String(d).padStart(2,‘0’);
-row.push(DATA.signatures[ds + ‘|’ + zone] ? ‘✓’ : ‘’);
-}
-const mRecs = DATA.maintenance.filter(m => m.eqId === eq.id);
-row.push(mRecs.map(m => `${m.date}: ${m.description}${m.completed?' [已完成]':''}`).join(’; ‘));
-const tRecs = DATA.transfers.filter(t => t.eqId === eq.id);
-row.push(tRecs.map(t => `${t.date}: ${t.description} → ${t.destination}${t.returned?' [已歸還]':''}`).join(’; ‘));
-csv += row.map(v => `"${(v||'').toString().replace(/"/g,'""')}"`).join(’,’) + ‘\n’;
-});
-});
-
-const blob = new Blob([csv], { type: ‘text/csv;charset=utf-8;’ });
-const a = document.createElement(‘a’); a.href = URL.createObjectURL(blob);
-a.download = `PT設備紀錄_${year}年${month}月.csv`; a.click();
-toast(‘已匯出月報’);
-};
-
-// ─── BOOT ───
-async function boot() {
-try {
-setupListeners();
-// Wait a bit for initial data to come through
-setTimeout(() => {
-document.getElementById(‘loadingOverlay’).classList.add(‘hide’);
-setTimeout(() => document.getElementById(‘loadingOverlay’).style.display = ‘none’, 300);
-}, 1200);
-} catch(e) {
-console.error(‘Boot error:’, e);
-document.getElementById(‘loadingOverlay’).innerHTML = ` <div style="text-align:center;padding:20px;"> <div style="font-size:48px;margin-bottom:16px;">⚠️</div> <div style="font-size:16px;font-weight:600;margin-bottom:8px;">連接失敗</div> <div style="font-size:14px;color:var(--text-secondary);">${e.message}</div> <button class="btn btn-primary" style="margin-top:16px;" onclick="location.reload()">重試</button> </div>`;
-}
-}
-
-boot();
+$("dailySearchX").addEventListener("click",()=>{$("dailySearch").value="";renderDaily()});
+$("equipSearchX").addEventListener("click",()=>{$("equipSearch").value="";renderEquip()});
+renderAll();
 </script>
 
 </body>
