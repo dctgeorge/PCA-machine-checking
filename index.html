@@ -144,6 +144,21 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--ink);min-heig
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
 @media(max-width:400px){.header h1{font-size:17px}.tab-btn{font-size:12px;padding:8px 12px}.content{padding:12px}}
+
+/* Font zoom FAB */
+.zoom-fab{position:fixed;bottom:24px;right:16px;z-index:200}
+.zoom-toggle{width:46px;height:46px;border-radius:50%;background:#141825;color:#fff;border:none;font-size:20px;font-weight:800;cursor:pointer;box-shadow:0 4px 16px rgba(20,24,37,.35);display:flex;align-items:center;justify-content:center;font-family:var(–font);transition:.2s}
+.zoom-toggle:active{transform:scale(.92)}
+.zoom-panel{position:absolute;bottom:56px;right:0;background:#fff;border-radius:14px;box-shadow:0 8px 30px rgba(20,24,37,.2);border:1.5px solid #c0c5d0;padding:12px;display:none;min-width:180px;animation:slideUp .2s}
+.zoom-panel.show{display:block}
+.zoom-panel .zp-title{font-size:12px;font-weight:700;color:#555e70;margin-bottom:10px;text-align:center}
+.zoom-panel .zp-row{display:flex;align-items:center;gap:8px;justify-content:center}
+.zoom-panel .zp-btn{width:42px;height:42px;border-radius:10px;border:1.5px solid #c0c5d0;background:#e4e6ed;color:#141825;font-size:16px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(–font);transition:.15s}
+.zoom-panel .zp-btn:active{transform:scale(.93)}
+.zoom-panel .zp-btn.zp-minus{font-size:14px}
+.zoom-panel .zp-btn.zp-plus{font-size:18px}
+.zoom-panel .zp-btn.zp-reset{font-size:11px;width:auto;padding:0 12px;color:#1746a2;border-color:#a8bde8;background:#dde8ff}
+.zoom-panel .zp-level{font-size:15px;font-weight:800;color:#141825;min-width:46px;text-align:center}
 </style>
 
 </head>
@@ -280,6 +295,21 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--ink);min-heig
     </div>
     <div class="tac" style="padding:24px;color:var(--ink3);font-size:11px">PT Equipment Management System v4.0 · Firebase Cloud</div>
   </div>
+</div>
+
+<div class="zoom-fab" id="zoomFab">
+  <div class="zoom-panel" id="zoomPanel">
+    <div class="zp-title">字體大小</div>
+    <div class="zp-row">
+      <button class="zp-btn zp-minus" onclick="zoomChange(-1)">A-</button>
+      <div class="zp-level" id="zoomLevel">100%</div>
+      <button class="zp-btn zp-plus" onclick="zoomChange(1)">A+</button>
+    </div>
+    <div class="zp-row" style="margin-top:8px">
+      <button class="zp-btn zp-reset" onclick="zoomReset()">重設預設</button>
+    </div>
+  </div>
+  <button class="zoom-toggle" id="zoomToggle" onclick="toggleZoomPanel()">A</button>
 </div>
 
 <div id="modalBox"></div>
@@ -1053,6 +1083,40 @@ async function clearAllData(){
   }
   toast("已清除全部資料");
 }
+
+// ═══════════════════════════════════════════════
+//  FONT ZOOM
+// ═══════════════════════════════════════════════
+const ZOOM_STEPS=[80,85,90,95,100,110,120,130,140,150];
+let zoomIdx=4; // default 100%
+
+function loadZoom(){
+  try{const v=localStorage.getItem("pt_zoom");if(v){const n=parseInt(v);const i=ZOOM_STEPS.indexOf(n);if(i>=0)zoomIdx=i}}catch(e){}
+  applyZoom();
+}
+function applyZoom(){
+  const pct=ZOOM_STEPS[zoomIdx];
+  document.body.style.zoom=(pct/100);
+  const el=$("zoomLevel");if(el)el.textContent=pct+"%";
+  try{localStorage.setItem("pt_zoom",pct)}catch(e){}
+}
+function zoomChange(dir){
+  zoomIdx=Math.max(0,Math.min(ZOOM_STEPS.length-1,zoomIdx+dir));
+  applyZoom();
+}
+function zoomReset(){zoomIdx=4;applyZoom()}
+function toggleZoomPanel(){
+  const p=$("zoomPanel");
+  p.classList.toggle("show");
+}
+// Close panel when tapping outside
+document.addEventListener("click",function(e){
+  const fab=$("zoomFab");
+  if(fab&&!fab.contains(e.target)){
+    $("zoomPanel").classList.remove("show");
+  }
+});
+loadZoom();
 
 // ═══════════════════════════════════════════════
 //  INIT
