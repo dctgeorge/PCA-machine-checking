@@ -54,9 +54,9 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--ink);min-heig
 .btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
 .btn-pri{background:var(–ink);color:#fff}.btn-acc{background:var(–accent);color:#fff}
 .btn-grn{background:var(–green);color:#fff}.btn-red{background:var(–red);color:#fff}
-.btn-blu{background:var(–blue);color:#fff}.btn-gho{background:#f0f1f5;color:var(–ink)}
+.btn-blu{background:var(–blue);color:#fff}.btn-gho{background:#eceef2;color:var(–ink);border:1px solid #d0d4dd}
 .btn-full{width:100%}.btn-sm{padding:7px 13px;font-size:12px;border-radius:8px}
-.btn-xs{padding:5px 9px;font-size:11px;border-radius:6px;font-weight:600}
+.btn-xs{padding:5px 9px;font-size:11px;border-radius:6px;font-weight:600;border:1px solid #d0d4dd}
 
 .fl{font-size:12px;font-weight:600;color:var(–ink2);margin-bottom:5px;display:block}
 .fi,.fsel{width:100%;padding:11px 14px;border-radius:var(–rs);border:1.5px solid var(–border);font-size:14px;font-family:var(–font);background:var(–card);color:var(–ink);outline:none;transition:border .2s;margin-bottom:12px}
@@ -71,11 +71,11 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--ink);min-heig
 /* Zone filter pills */
 .zone-pills{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px;scrollbar-width:none}
 .zone-pills::-webkit-scrollbar{display:none}
-.zpill{padding:7px 14px;border-radius:20px;border:1.5px solid var(–border);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;background:#fff;color:var(–ink2);transition:.2s;font-family:var(–font)}
-.zpill.active{background:var(–accent);color:#fff;border-color:var(–accent)}
+.zpill{padding:7px 14px;border-radius:20px;border:2px solid #d0d4dd;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;background:#fff;color:#444e5f;transition:.2s;font-family:var(–font)}
+.zpill.active{background:#1746a2;color:#ffffff;border-color:#1746a2;box-shadow:0 2px 8px rgba(23,70,162,.3)}
 
-.chk{width:30px;height:30px;border-radius:9px;border:2.5px solid var(–border);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.15s;background:#fff;font-size:16px;color:#fff;font-weight:800}
-.chk.on{background:var(–green);border-color:var(–green)}
+.chk{width:30px;height:30px;border-radius:9px;border:2.5px solid #b0b8c8;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.15s;background:#f5f6f9;font-size:16px;color:#fff;font-weight:800}
+.chk.on{background:#0d9f6e;border-color:#0d9f6e}
 
 .eqr{display:flex;align-items:flex-start;gap:10px;padding:12px 0;border-top:1px solid #f3f4f7}
 .eqr:first-child{border-top:none}
