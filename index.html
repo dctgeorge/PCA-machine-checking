@@ -157,14 +157,6 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--ink);min-heig
 .login-box .login-err{color:#d03050;font-size:12px;font-weight:600;margin-top:10px;min-height:18px}
 @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
 
-/* Sort pills */
-.sort-bar{display:flex;gap:6px;align-items:center;margin-bottom:12px;overflow-x:auto;scrollbar-width:none}
-.sort-bar::-webkit-scrollbar{display:none}
-.sort-bar .sort-label{font-size:11px;font-weight:700;color:#6b7588;white-space:nowrap;flex-shrink:0}
-.spill{padding:5px 12px;border-radius:16px;border:1.5px solid #d0d4dd;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;background:#fff;color:#555e70;transition:.2s;font-family:var(--font)}
-.spill.active{background:#2c3e50;color:#fff;border-color:#2c3e50}
-.spill .arrow{font-size:9px;margin-left:2px}
-
 /* Font zoom FAB */
 .zoom-fab{position:fixed;bottom:24px;right:16px;z-index:200}
 .zoom-toggle{width:46px;height:46px;border-radius:50%;background:#141825;color:#fff;border:none;font-size:20px;font-weight:800;cursor:pointer;box-shadow:0 4px 16px rgba(20,24,37,.35);display:flex;align-items:center;justify-content:center;font-family:var(--font);transition:.2s}
@@ -235,7 +227,6 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--ink);min-heig
     </div>
     <!-- Zone filter pills -->
     <div class="zone-pills" id="dailyZonePills"></div>
-    <div class="sort-bar" id="dailySortBar"></div>
     <!-- Search -->
     <div class="sw">
       <span class="si-icon">🔍</span>
@@ -286,7 +277,6 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--ink);min-heig
       <button class="btn btn-gho gr" style="min-width:100px" onclick="downloadTemplate()">⬇ 下載模板</button>
     </div>
     <div class="zone-pills" id="equipZonePills"></div>
-    <div class="sort-bar" id="equipSortBar"></div>
     <div class="sw">
       <span class="si-icon">🔍</span>
       <input type="text" id="equipSearch" class="si" placeholder="搜尋設備名稱 / Asset ID...">
@@ -432,41 +422,6 @@ let checksCache={},remarksCache={},sigsCache={};
 let loadCount=0;const LOAD_TARGET=4;
 // Zone filters per tab
 let dailyZoneFilter="all", maintZoneFilter="all", transZoneFilter="all", remarksZoneFilter="all", equipZoneFilter="all";
-// Sort
-const SORT_OPTIONS=[
-  {key:"name",label:"名稱"},
-  {key:"commonName",label:"Common Name"},
-  {key:"assetId",label:"Asset ID"},
-  {key:"serialNumber",label:"Serial Number"},
-  {key:"location",label:"Location"},
-  {key:"zone",label:"Zone"}
-];
-let equipSortKey="name", equipSortAsc=true;
-function loadSortPref(){try{const v=localStorage.getItem("pt_sort");if(v){const o=JSON.parse(v);equipSortKey=o.k||"name";equipSortAsc=o.a!==false}}catch(e){}}
-function saveSortPref(){try{localStorage.setItem("pt_sort",JSON.stringify({k:equipSortKey,a:equipSortAsc}))}catch(e){}}
-function sortEquipList(list){
-  return [...list].sort((a,b)=>{
-    const va=(a[equipSortKey]||"").toLowerCase();
-    const vb=(b[equipSortKey]||"").toLowerCase();
-    if(va<vb)return equipSortAsc?-1:1;
-    if(va>vb)return equipSortAsc?1:-1;
-    return 0;
-  });
-}
-function setSort(key){
-  if(equipSortKey===key){equipSortAsc=!equipSortAsc}
-  else{equipSortKey=key;equipSortAsc=true}
-  saveSortPref();renderAll();
-}
-function renderSortBar(containerId){
-  let h='<span class="sort-label">排序:</span>';
-  SORT_OPTIONS.forEach(o=>{
-    const active=equipSortKey===o.key;
-    const arrow=active?(equipSortAsc?'↑':'↓'):'';
-    h+=`<button class="spill ${active?'active':''}" onclick="setSort('${o.key}')">${o.label}${arrow?'<span class="arrow"> '+arrow+'</span>':''}</button>`;
-  });
-  $(containerId).innerHTML=h;
-}
 // Remark debounce timers
 let remarkTimers={};
 // Separate cache for Remarks page date
@@ -559,10 +514,7 @@ document.querySelectorAll(".tab-btn").forEach(b=>{
 // ═══════════════════════════════════════════════
 function equipByZone(){
   const m={};D.zones.forEach(z=>{m[z]=[]});
-  D.equipment.forEach(e=>{if(!m[e.zone])m[e.zone]=[];m[e.zone].push(e)});
-  // Sort within each zone
-  Object.keys(m).forEach(z=>{m[z]=sortEquipList(m[z])});
-  return m;
+  D.equipment.forEach(e=>{if(!m[e.zone])m[e.zone]=[];m[e.zone].push(e)});return m;
 }
 function activeMaintIds(){return new Set(D.maintenance.filter(m=>!m.completed).map(m=>m.equipmentId))}
 function activeTransferIds(){return new Set(D.transfers.filter(t=>!t.returned).map(t=>t.equipmentId))}
@@ -644,7 +596,6 @@ function renderDaily(){
 
   // Zone pills
   renderZonePills("dailyZonePills",dailyZoneFilter,"setDailyZone");
-  renderSortBar("dailySortBar");
 
   // Determine which zones to show
   const showZones=dailyZoneFilter==="all"?D.zones:[dailyZoneFilter];
@@ -876,13 +827,11 @@ function setEquipZone(z){equipZoneFilter=z;renderEquip()}
 
 function renderEquip(){
   renderZonePills("equipZonePills",equipZoneFilter,"setEquipZone");
-  renderSortBar("equipSortBar");
   const sv=($("equipSearch").value||"").toLowerCase().trim();
   $("equipSearchX").classList.toggle("hidden",!sv);
   let list=D.equipment;
   if(equipZoneFilter!=="all") list=list.filter(e=>e.zone===equipZoneFilter);
   if(sv)list=list.filter(e=>e.name.toLowerCase().includes(sv)||e.commonName.toLowerCase().includes(sv)||e.assetId.toLowerCase().includes(sv));
-  list=sortEquipList(list);
   $("equipCount").textContent=`共 ${list.length} 件設備${equipZoneFilter!=="all"?' ('+equipZoneFilter+')':''}${sv?' (搜尋中)':''}`;
   if(!list.length&&!D.equipment.length){
     $("equipList").innerHTML=`<div class="card"><div class="empty"><i>📦</i><div>開始新增設備或匯入 CSV 吧！</div></div></div>`;return;
@@ -1258,7 +1207,6 @@ document.addEventListener("click",function(e){
   }
 });
 loadZoom();
-loadSortPref();
 
 // ═══════════════════════════════════════════════
 //  INIT
