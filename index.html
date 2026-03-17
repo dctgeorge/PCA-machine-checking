@@ -250,24 +250,24 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--ink);min-heig
     <button class="btn btn-pri btn-full mt8" style="padding:14px" onclick="exportMonthly()">
       📊 匯出 <span id="exportMonth"></span> 月份報告 (Excel)
     </button>
+    <button class="btn btn-acc btn-full mt8" style="padding:14px" onclick="exportSignatureReport()">
+      ✍️ 匯出簽名報告 (含簽名圖像)
+    </button>
   </div>
 
   <!-- ═══ REMARKS ═══ -->
   <div id="tab-remarks" class="tab-content hidden">
     <div class="card">
-      <div style="display:flex;gap:12px;align-items:flex-end">
-        <div style="flex:1;min-width:0">
-          <label class="fl">選擇日期</label>
-          <input type="date" id="remarksDate" class="fi" style="margin-bottom:0">
-        </div>
-        <div style="text-align:right;flex-shrink:0;padding-bottom:2px">
-          <div class="f12 cm">有 Remarks 設備</div>
+      <div class="fx jb ac">
+        <div><div class="w8 f14">📝 最近 60 日 Remarks</div><div class="f12 cm">顯示所有有 Remarks 嘅設備</div></div>
+        <div class="tar">
+          <div class="f12 cm">總 Remarks</div>
           <div id="remarksCount" class="f22 w8" style="color:#1746a2">0</div>
         </div>
       </div>
     </div>
     <div class="zone-pills" id="remarksZonePills"></div>
-    <div id="remarksList"></div>
+    <div id="remarksList"><div class="card"><div class="empty"><i>⏳</i><div>載入中...</div></div></div></div>
   </div>
 
   <!-- ═══ MAINT ═══ -->
@@ -318,6 +318,7 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--ink);min-heig
       <div class="f13 cm mb12">匯出選定月份的完整紀錄至 Excel</div>
       <input type="month" id="settingsMonth" class="fi">
       <button class="btn btn-acc btn-full" onclick="exportMonthly()">📥 匯出 Excel</button>
+      <button class="btn btn-pri btn-full mt8" onclick="exportSignatureReport()">✍️ 匯出簽名報告</button>
     </div>
     <div class="card">
       <div class="w7 f14 mb12">📄 CSV 工具</div>
@@ -482,8 +483,6 @@ function renderSortCtrl(containerId){
 }
 // Remark debounce timers
 let remarkTimers={};
-// Separate cache for Remarks page date
-let remarksPageData={checks:{},remarks:{}};
 
 // ═══════════════════════════════════════════════
 //  HELPERS
@@ -568,6 +567,7 @@ document.querySelectorAll(".tab-btn").forEach(b=>{
     b.classList.add("active");
     document.querySelectorAll(".tab-content").forEach(c=>c.classList.add("hidden"));
     $("tab-"+curTab).classList.remove("hidden");
+    if(curTab==="remarks"){_remarksData=null;loadRemarks60Days();}
     renderAll();
   });
 });
@@ -611,12 +611,12 @@ let _sigCv,_sigCx,_sigDr=false,_sigLt=null,_sigRes=null,_sigZoomBak=null;
 function openSignPad(label){
   return new Promise(resolve=>{
     _sigRes=resolve;
-    // Temporarily reset zoom so canvas coordinates work correctly
     _sigZoomBak=document.body.style.zoom||"1";
     document.body.style.zoom="1";
     $("sigBox").innerHTML=`<div class="sig-ov" onclick="_sigCancel()"><div class="sig-box" onclick="event.stopPropagation()">
       <div class="w7 f14" style="margin-bottom:3px">${esc(label)}</div>
-      <div class="f12 cm mb12">請在下方空白處簽名</div>
+      <div class="f12 cm mb12">請輸入姓名並在下方簽名</div>
+      <input type="text" id="sigName" class="fi" placeholder="簽署人姓名" style="margin-bottom:10px">
       <canvas id="sigCv" class="sig-cv"></canvas>
       <div class="sig-acts">
         <button class="btn btn-gho" onclick="_sigClear()">清除</button>
@@ -630,6 +630,7 @@ function openSignPad(label){
     _sigCv.addEventListener("mousedown",_sS);_sigCv.addEventListener("mousemove",_sM);
     _sigCv.addEventListener("mouseup",_sE);_sigCv.addEventListener("mouseleave",_sE);
     _sigCv.addEventListener("touchstart",_sS,{passive:false});_sigCv.addEventListener("touchmove",_sM,{passive:false});_sigCv.addEventListener("touchend",_sE);
+    $("sigName").focus();
   });
 }
 function _restoreZoom(){if(_sigZoomBak!==null){document.body.style.zoom=_sigZoomBak;_sigZoomBak=null}}
@@ -644,11 +645,13 @@ function _sE(){_sigDr=false;_sigLt=null}
 function _sigClear(){_sigCx.clearRect(0,0,_sigCv.width,_sigCv.height)}
 function _sigCancel(){$("sigBox").innerHTML="";_restoreZoom();if(_sigRes){_sigRes(null);_sigRes=null}}
 function _sigSave(){
+  const name=($("sigName").value||"").trim();
+  if(!name){alert("請輸入姓名！");$("sigName").focus();return}
   const px=_sigCx.getImageData(0,0,_sigCv.width,_sigCv.height).data;
   let blank=true;for(let i=3;i<px.length;i+=4){if(px[i]>0){blank=false;break}}
   if(blank){alert("請先簽名！");return}
   const img=_sigCv.toDataURL("image/png");
-  $("sigBox").innerHTML="";_restoreZoom();if(_sigRes){_sigRes(img);_sigRes=null}
+  $("sigBox").innerHTML="";_restoreZoom();if(_sigRes){_sigRes({img,name});_sigRes=null}
 }
 
 // ═══════════════════════════════════════════════
@@ -723,7 +726,7 @@ function renderDaily(){
       if(signed){
         h+=`<div class="sig-area signed">
           <div class="fx ac jb">
-            <div class="fx ac g8"><img src="${signed.img}" class="sigp"><span class="f12 w7 cg">已簽名確認</span></div>
+            <div class="fx ac g8"><img src="${signed.img}" class="sigp"><div><span class="f12 w7 cg">已簽名確認</span>${signed.name?'<div class="f11 cm">簽署: '+esc(signed.name)+'</div>':''}</div></div>
             <div class="fx g4">
               <button class="btn-xs" onclick="resignZone('${esc(zone)}')">✏️ 重簽</button>
               <button class="btn-xs btn-xs-del" onclick="cancelSig('${esc(zone)}')">✕ 取消</button>
@@ -775,16 +778,16 @@ function saveRemark(eqId,val){
 }
 
 async function signZone(zone){
-  const img=await openSignPad("簽名確認 — "+zone+" · "+fmt(getDate()));
-  if(!img)return;
-  db.collection("signatures").doc(getDate()).set({[zone]:{img,time:new Date().toISOString()}},{merge:true})
+  const result=await openSignPad("簽名確認 — "+zone+" · "+fmt(getDate()));
+  if(!result)return;
+  db.collection("signatures").doc(getDate()).set({[zone]:{img:result.img,name:result.name,time:new Date().toISOString()}},{merge:true})
     .then(()=>toast("已簽名 ✓")).catch(console.error);
 }
 
 async function resignZone(zone){
-  const img=await openSignPad("重新簽名 — "+zone+" · "+fmt(getDate()));
-  if(!img)return;
-  db.collection("signatures").doc(getDate()).set({[zone]:{img,time:new Date().toISOString()}},{merge:true})
+  const result=await openSignPad("重新簽名 — "+zone+" · "+fmt(getDate()));
+  if(!result)return;
+  db.collection("signatures").doc(getDate()).set({[zone]:{img:result.img,name:result.name,time:new Date().toISOString()}},{merge:true})
     .then(()=>toast("已重新簽名 ✓")).catch(console.error);
 }
 
@@ -827,7 +830,7 @@ function renderMaint(){
       </div>
       <div class="adet"><strong>Action:</strong> ${esc(m.action)}</div>
       <div class="fx jb ac f12 cm"><span>日期: ${fmt(m.date)}</span>${m.completedDate?'<span>完成: '+fmt(m.completedDate)+'</span>':''}</div>
-      ${m.signature?'<div class="mt8"><img src="'+m.signature+'" class="sigp"></div>':''}
+      ${m.signature?'<div class="mt8 fx ac g8"><img src="'+m.signature+'" class="sigp">'+(m.signerName?'<span class="f11 cm">簽署: '+esc(m.signerName)+'</span>':'')+'</div>':''}
       ${!m.completed?'<button class="btn btn-grn btn-full mt10" onclick="completeMaint(\''+m.id+'\')">✓ 維修完成</button>':''}
     </div>`;
   });
@@ -874,7 +877,7 @@ function renderTransfers(){
       </div>
       <div class="adet"><strong>目的地:</strong> ${esc(t.destination)}</div>
       <div class="fx jb ac f12 cm"><span>送出: ${fmt(t.sendDate)}</span>${t.returnedDate?'<span>歸還: '+fmt(t.returnedDate)+'</span>':''}</div>
-      ${t.signature?'<div class="mt8"><img src="'+t.signature+'" class="sigp"></div>':''}
+      ${t.signature?'<div class="mt8 fx ac g8"><img src="'+t.signature+'" class="sigp">'+(t.signerName?'<span class="f11 cm">簽署: '+esc(t.signerName)+'</span>':'')+'</div>':''}
       ${!t.returned?'<button class="btn btn-grn btn-full mt10" onclick="returnTrans(\''+t.id+'\')">✓ 已歸還</button>':''}
     </div>`;
   });
@@ -919,7 +922,7 @@ function renderDisposals(){
       </div>
       <div class="adet"><strong>原因:</strong> ${esc(d.reason)}</div>
       <div class="f12 cm">日期: ${fmt(d.date)}</div>
-      ${d.signature?'<div class="mt8"><img src="'+d.signature+'" class="sigp"></div>':''}
+      ${d.signature?'<div class="mt8 fx ac g8"><img src="'+d.signature+'" class="sigp">'+(d.signerName?'<span class="f11 cm">簽署: '+esc(d.signerName)+'</span>':'')+'</div>':''}
     </div>`;
   });
   $("disposalList").innerHTML=h;
@@ -944,7 +947,7 @@ function _renderDF(eqId,dtV,reasonV){
   const eq=D.equipment.find(e=>e.id===eqId);
   if(!eq){alert("找不到設備");return}
   const sigH=_dSig
-    ?`<div class="mb12"><div class="fl">助理簽名 ✓</div><img src="${_dSig}" class="sigp"></div>`
+    ?`<div class="mb12"><div class="fl">助理簽名 ✓ — ${esc(_dSig.name)}</div><img src="${_dSig.img}" class="sigp"></div>`
     :`<button class="btn btn-gho btn-full mb12" onclick="_dOpenSig('${eqId}')">✍️ 助理簽名</button>`;
   openModal("新增報銷紀錄",`
     <div class="card" style="margin-bottom:16px;background:#fafbfd">
@@ -960,8 +963,8 @@ function _renderDF(eqId,dtV,reasonV){
 
 async function _dOpenSig(eqId){
   const dV=$("dDate").value,rV=$("dReason").value;
-  const img=await openSignPad("助理簽名 — 報銷紀錄");
-  if(img)_dSig=img;
+  const result=await openSignPad("助理簽名 — 報銷紀錄");
+  if(result)_dSig=result;
   _renderDF(eqId,dV,rV);
 }
 
@@ -970,7 +973,7 @@ function _dSave(eqId){
   if(!reason){alert("請填寫報銷原因");return}
   if(!_dSig){alert("請先簽名");return}
   db.collection("disposals").doc(uid()).set({
-    equipmentId:eqId,date:$("dDate").value,reason,signature:_dSig
+    equipmentId:eqId,date:$("dDate").value,reason,signature:_dSig.img,signerName:_dSig.name
   }).then(()=>{toast("報銷紀錄已新增");_dSig=null;closeModal()}).catch(e=>alert("儲存失敗: "+e.message));
 }
 
@@ -1099,69 +1102,85 @@ function renderSettings(){
 function renderAll(){renderDaily();renderRemarks();renderMaint();renderTransfers();renderDisposals();renderEquip();renderSettings()}
 
 // ═══════════════════════════════════════════════
-//  RENDER: REMARKS PAGE
+//  RENDER: REMARKS PAGE (last 60 days)
 // ═══════════════════════════════════════════════
-function getRemarksDate(){return $("remarksDate")?.value||todayStr()}
 function setRemarksZone(z){remarksZoneFilter=z;renderRemarks()}
+let _remarksData=null; // cached 60-day data
+let _remarksLoading=false;
 
-async function loadRemarksForDate(date){
+async function loadRemarks60Days(){
+  if(_remarksLoading)return;
+  _remarksLoading=true;
   try{
-    const doc=await db.collection("dailyChecks").doc(date).get();
-    if(doc.exists){const d=doc.data();remarksPageData={checks:d.checks||{},remarks:d.remarks||{}}}
-    else remarksPageData={checks:{},remarks:{}};
-  }catch(e){console.error(e);remarksPageData={checks:{},remarks:{}};}
+    const today=new Date();
+    const past=new Date(today);past.setDate(past.getDate()-60);
+    const startD=past.toISOString().slice(0,10);
+    const endD=today.toISOString().slice(0,10);
+    const snap=await db.collection("dailyChecks")
+      .where(firebase.firestore.FieldPath.documentId(),">=",startD)
+      .where(firebase.firestore.FieldPath.documentId(),"<=",endD).get();
+    const data=[];
+    snap.forEach(doc=>{
+      const dd=doc.data();
+      const remarks=dd.remarks||{};
+      const checks=dd.checks||{};
+      Object.keys(remarks).forEach(eqId=>{
+        if(remarks[eqId]&&remarks[eqId].trim()){
+          data.push({date:doc.id,eqId,text:remarks[eqId],checked:!!checks[eqId]});
+        }
+      });
+    });
+    data.sort((a,b)=>b.date.localeCompare(a.date));
+    _remarksData=data;
+  }catch(e){console.error(e);_remarksData=[];}
+  _remarksLoading=false;
   renderRemarks();
 }
 
 function renderRemarks(){
-  const dateEl=$("remarksDate");
-  if(!dateEl)return;
-  const date=getRemarksDate();
-
-  // If this date matches the daily tab date, use live cache; otherwise use separately fetched data
-  let remarks,checks;
-  if(date===getDate()){
-    remarks=remarksCache[date]||{};
-    checks=checksCache[date]||{};
-  } else {
-    remarks=remarksPageData.remarks||{};
-    checks=remarksPageData.checks||{};
-  }
-
   renderZonePills("remarksZonePills",remarksZoneFilter,"setRemarksZone");
 
-  // Filter equipment that has a remark on this date
-  const remarkedEqs=D.equipment.filter(e=>remarks[e.id]&&remarks[e.id].trim());
-  let filtered=remarkedEqs;
-  if(remarksZoneFilter!=="all") filtered=filtered.filter(e=>e.zone===remarksZoneFilter);
-
-  $("remarksCount").textContent=remarkedEqs.length;
-
-  if(!filtered.length){
-    $("remarksList").innerHTML=`<div class="card"><div class="empty"><i>📝</i><div>${remarkedEqs.length===0?'此日期沒有任何 Remarks':'此區域沒有 Remarks'}</div>
-      <div class="f12" style="margin-top:4px">${remarkedEqs.length===0?'當設備在每日檢查中填寫 Remarks 後會顯示於此':'請選擇其他區域'}</div></div></div>`;
+  if(!_remarksData){
+    $("remarksList").innerHTML=`<div class="card"><div class="empty"><i>⏳</i><div>載入中...</div></div></div>`;
+    loadRemarks60Days();
+    $("remarksCount").textContent="…";
     return;
   }
 
-  // Group by zone
-  const byZone={};
-  filtered.forEach(e=>{if(!byZone[e.zone])byZone[e.zone]=[];byZone[e.zone].push(e)});
+  let data=_remarksData;
+  if(remarksZoneFilter!=="all"){
+    const eqIds=new Set(D.equipment.filter(e=>e.zone===remarksZoneFilter).map(e=>e.id));
+    data=data.filter(r=>eqIds.has(r.eqId));
+  }
+
+  $("remarksCount").textContent=data.length;
+
+  if(!data.length){
+    $("remarksList").innerHTML=`<div class="card"><div class="empty"><i>📝</i><div>最近 60 日沒有任何 Remarks</div></div></div>`;
+    return;
+  }
+
+  // Group by date
+  const byDate={};
+  data.forEach(r=>{if(!byDate[r.date])byDate[r.date]=[];byDate[r.date].push(r)});
+  const dates=Object.keys(byDate).sort((a,b)=>b.localeCompare(a));
 
   let h="";
-  Object.keys(byZone).forEach(zone=>{
+  dates.forEach(date=>{
+    const items=byDate[date];
     h+=`<div class="card">
-      <div class="fx ac g8 mb12"><div class="w8 f14">${esc(zone)}</div><span class="badge bg-orange">${byZone[zone].length} remarks</span></div>`;
-    byZone[zone].forEach(e=>{
-      const rm=remarks[e.id]||"";
-      const c=!!checks[e.id];
+      <div class="fx ac g8 mb10"><div class="w7 f14">${fmt(date)}</div><span class="badge bg-orange">${items.length} remarks</span></div>`;
+    items.forEach(r=>{
+      const eq=D.equipment.find(e=>e.id===r.eqId);
+      if(!eq)return;
       h+=`<div style="padding:10px 0;border-top:1px solid #f3f4f7">
         <div class="fx ac g8 mb6">
-          <span class="badge ${c?'bg-green':'bg-red'}" style="font-size:10px">${c?'✓ Checked':'✗ Unchecked'}</span>
-          <span class="w6 f13">${esc(e.name)}</span>
+          <span class="badge ${r.checked?'bg-green':'bg-red'}" style="font-size:10px">${r.checked?'✓ Checked':'✗ Unchecked'}</span>
+          <span class="w6 f13">${esc(eq.name)}</span>
         </div>
-        <div class="f12 cm mb6">${esc(e.commonName)} · ${esc(e.assetId)}</div>
-        <div style="padding:8px 12px;background:#fff8ec;border-left:3px solid var(--orange);border-radius:0 var(--rs) var(--rs) 0;font-size:13px;color:var(--ink)">
-          ${esc(rm)}
+        <div class="f12 cm mb6">${esc(eq.commonName)} · ${esc(eq.assetId)} · ${esc(eq.zone)}</div>
+        <div style="padding:8px 12px;background:#fff8ec;border-left:3px solid #e07020;border-radius:0 10px 10px 0;font-size:13px;color:#141825">
+          ${esc(r.text)}
         </div>
       </div>`;
     });
@@ -1210,7 +1229,7 @@ function _renderMF(eqId,dtV,actV){
   const eq=D.equipment.find(e=>e.id===eqId);
   if(!eq){alert("找不到設備");return}
   const sigH=_mSig
-    ?`<div class="mb12"><div class="fl">助理簽名 ✓</div><img src="${_mSig}" class="sigp"></div>`
+    ?`<div class="mb12"><div class="fl">助理簽名 ✓ — ${esc(_mSig.name)}</div><img src="${_mSig.img}" class="sigp"></div>`
     :`<button class="btn btn-gho btn-full mb12" onclick="_mOpenSig('${eqId}')">✍️ 助理簽名</button>`;
   openModal("新增維修紀錄",`
     <div class="card" style="margin-bottom:16px;background:#fafbfd">
@@ -1226,8 +1245,8 @@ function _renderMF(eqId,dtV,actV){
 
 async function _mOpenSig(eqId){
   const dV=$("mDate").value,aV=$("mAction").value;
-  const img=await openSignPad("助理簽名 — 維修紀錄");
-  if(img)_mSig=img;
+  const result=await openSignPad("助理簽名 — 維修紀錄");
+  if(result)_mSig=result;
   _renderMF(eqId,dV,aV);
 }
 
@@ -1236,7 +1255,7 @@ function _mSave(eqId){
   if(!action){alert("請填寫維修內容");return}
   if(!_mSig){alert("請先簽名");return}
   db.collection("maintenance").doc(uid()).set({
-    equipmentId:eqId,date:$("mDate").value,action,signature:_mSig,completed:false,completedDate:null
+    equipmentId:eqId,date:$("mDate").value,action,signature:_mSig.img,signerName:_mSig.name,completed:false,completedDate:null
   }).then(()=>{toast("維修紀錄已新增");_mSig=null;closeModal()}).catch(e=>alert("儲存失敗: "+e.message));
 }
 
@@ -1254,7 +1273,7 @@ function _renderTF(eqId,dtV,dstV){
   const eq=D.equipment.find(e=>e.id===eqId);
   if(!eq){alert("找不到設備");return}
   const sigH=_tSig
-    ?`<div class="mb12"><div class="fl">助理簽名 ✓</div><img src="${_tSig}" class="sigp"></div>`
+    ?`<div class="mb12"><div class="fl">助理簽名 ✓ — ${esc(_tSig.name)}</div><img src="${_tSig.img}" class="sigp"></div>`
     :`<button class="btn btn-gho btn-full mb12" onclick="_tOpenSig('${eqId}')">✍️ 助理簽名</button>`;
   openModal("新增轉移紀錄",`
     <div class="card" style="margin-bottom:16px;background:#fafbfd">
@@ -1270,8 +1289,8 @@ function _renderTF(eqId,dtV,dstV){
 
 async function _tOpenSig(eqId){
   const dV=$("tDate").value,dsV=$("tDest").value;
-  const img=await openSignPad("助理簽名 — 轉移紀錄");
-  if(img)_tSig=img;
+  const result=await openSignPad("助理簽名 — 轉移紀錄");
+  if(result)_tSig=result;
   _renderTF(eqId,dV,dsV);
 }
 
@@ -1280,7 +1299,7 @@ function _tSave(eqId){
   if(!dest){alert("請填寫目的地");return}
   if(!_tSig){alert("請先簽名");return}
   db.collection("transfers").doc(uid()).set({
-    equipmentId:eqId,sendDate:$("tDate").value,destination:dest,signature:_tSig,returned:false,returnedDate:null
+    equipmentId:eqId,sendDate:$("tDate").value,destination:dest,signature:_tSig.img,signerName:_tSig.name,returned:false,returnedDate:null
   }).then(()=>{toast("轉移紀錄已新增");_tSig=null;closeModal()}).catch(e=>alert("儲存失敗: "+e.message));
 }
 
@@ -1339,7 +1358,7 @@ function downloadTemplate(){
 }
 
 // ═══════════════════════════════════════════════
-//  EXCEL EXPORT (with Remarks column)
+//  EXCEL EXPORT (with signer names)
 // ═══════════════════════════════════════════════
 async function exportMonthly(){
   const mo=getMonth(),yr=+mo.slice(0,4),mn=+mo.slice(5,7),days=new Date(yr,mn,0).getDate();
@@ -1353,34 +1372,35 @@ async function exportMonthly(){
   cSnap.forEach(d=>{const dd=d.data();aC[d.id]={checks:dd.checks||{},remarks:dd.remarks||{}}});
   sSnap.forEach(d=>{aS[d.id]=d.data()});
 
-  const r1=[["日期","Zone","設備名稱","Common Name","Asset ID","檢查狀態","Remarks","Zone簽名狀態"]];
+  const r1=[["日期","Zone","設備名稱","Common Name","Asset ID","檢查狀態","Remarks","Zone簽名狀態","簽署人"]];
   for(let d=1;d<=days;d++){
     const dt=`${mo}-${String(d).padStart(2,"0")}`;
     const dc=aC[dt]||{checks:{},remarks:{}};const sg=aS[dt]||{};
     D.equipment.forEach(eq=>{
-      r1.push([fmt(dt),eq.zone,eq.name,eq.commonName,eq.assetId,dc.checks[eq.id]?"✓":"✗",dc.remarks[eq.id]||"",sg[eq.zone]?"已簽":"未簽"]);
+      const zoneSig=sg[eq.zone];
+      r1.push([fmt(dt),eq.zone,eq.name,eq.commonName,eq.assetId,dc.checks[eq.id]?"✓":"✗",dc.remarks[eq.id]||"",zoneSig?"已簽":"未簽",zoneSig?.name||""]);
     });
   }
   const ws1=XLSX.utils.aoa_to_sheet(r1);
 
-  const r2=[["日期","設備名稱","Asset ID","Zone","維修動作","狀態","完成日期"]];
+  const r2=[["日期","設備名稱","Asset ID","Zone","維修動作","狀態","完成日期","簽署人"]];
   D.maintenance.filter(m=>m.date&&m.date.startsWith(mo)).forEach(m=>{
     const eq=D.equipment.find(e=>e.id===m.equipmentId);
-    r2.push([fmt(m.date),eq?.name||"—",eq?.assetId||"—",eq?.zone||"—",m.action,m.completed?"已完成":"進行中",m.completedDate?fmt(m.completedDate):"—"]);
+    r2.push([fmt(m.date),eq?.name||"—",eq?.assetId||"—",eq?.zone||"—",m.action,m.completed?"已完成":"進行中",m.completedDate?fmt(m.completedDate):"—",m.signerName||""]);
   });
   const ws2=XLSX.utils.aoa_to_sheet(r2);
 
-  const r3=[["送出日期","設備名稱","Asset ID","Zone","目的地","狀態","歸還日期"]];
+  const r3=[["送出日期","設備名稱","Asset ID","Zone","目的地","狀態","歸還日期","簽署人"]];
   D.transfers.filter(t=>t.sendDate&&t.sendDate.startsWith(mo)).forEach(t=>{
     const eq=D.equipment.find(e=>e.id===t.equipmentId);
-    r3.push([fmt(t.sendDate),eq?.name||"—",eq?.assetId||"—",eq?.zone||"—",t.destination,t.returned?"已歸還":"轉移中",t.returnedDate?fmt(t.returnedDate):"—"]);
+    r3.push([fmt(t.sendDate),eq?.name||"—",eq?.assetId||"—",eq?.zone||"—",t.destination,t.returned?"已歸還":"轉移中",t.returnedDate?fmt(t.returnedDate):"—",t.signerName||""]);
   });
   const ws3=XLSX.utils.aoa_to_sheet(r3);
 
-  const r4=[["日期","設備名稱","Asset ID","Zone","報銷原因"]];
+  const r4=[["日期","設備名稱","Asset ID","Zone","報銷原因","簽署人"]];
   D.disposals.filter(d=>d.date&&d.date.startsWith(mo)).forEach(d=>{
     const eq=D.equipment.find(e=>e.id===d.equipmentId);
-    r4.push([fmt(d.date),eq?.name||"—",eq?.assetId||"—",eq?.zone||"—",d.reason]);
+    r4.push([fmt(d.date),eq?.name||"—",eq?.assetId||"—",eq?.zone||"—",d.reason,d.signerName||""]);
   });
   const ws4=XLSX.utils.aoa_to_sheet(r4);
 
@@ -1388,6 +1408,94 @@ async function exportMonthly(){
   XLSX.utils.book_append_sheet(wb,ws1,"每日檢查");XLSX.utils.book_append_sheet(wb,ws2,"維修紀錄");XLSX.utils.book_append_sheet(wb,ws3,"轉移紀錄");XLSX.utils.book_append_sheet(wb,ws4,"報銷紀錄");
   [ws1,ws2,ws3,ws4].forEach(ws=>{const ref=ws["!ref"];if(!ref)return;const rng=XLSX.utils.decode_range(ref),cols=[];for(let c=rng.s.c;c<=rng.e.c;c++){let mx=10;for(let r=rng.s.r;r<=rng.e.r;r++){const cl=ws[XLSX.utils.encode_cell({r,c})];if(cl&&cl.v)mx=Math.max(mx,String(cl.v).length*1.6)}cols.push({wch:Math.min(mx,32)})}ws["!cols"]=cols});
   XLSX.writeFile(wb,`PT設備管理_${mo}.xlsx`);toast("Excel 已下載 ✓");
+}
+
+// ═══════════════════════════════════════════════
+//  HTML SIGNATURE REPORT (with embedded images)
+// ═══════════════════════════════════════════════
+async function exportSignatureReport(){
+  const mo=getMonth(),yr=+mo.slice(0,4),mn=+mo.slice(5,7),days=new Date(yr,mn,0).getDate();
+  toast("正在生成簽名報告...");
+
+  const startD=mo+"-01",endD=mo+"-31";
+  const sSnap=await db.collection("signatures")
+    .where(firebase.firestore.FieldPath.documentId(),">=",startD)
+    .where(firebase.firestore.FieldPath.documentId(),"<=",endD).get();
+  const aS={};
+  sSnap.forEach(d=>{aS[d.id]=d.data()});
+
+  let html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>簽名報告 ${mo}</title>
+<style>body{font-family:sans-serif;padding:20px;max-width:900px;margin:0 auto}
+h1{font-size:20px}h2{font-size:16px;margin-top:24px;border-bottom:2px solid #1746a2;padding-bottom:6px}
+table{width:100%;border-collapse:collapse;margin-top:10px}
+th,td{border:1px solid #ccc;padding:8px;text-align:left;font-size:13px}
+th{background:#f0f1f5}img{height:50px}
+.none{color:#999;font-style:italic}
+@media print{body{padding:0}h1{font-size:16px}}</style></head><body>
+<h1>⚕️ PT 設備管理 — 簽名報告 ${mo}</h1>
+<p style="color:#666;font-size:12px">生成時間: ${new Date().toLocaleString('zh-HK')}</p>`;
+
+  // Daily zone signatures
+  html+=`<h2>📋 每日檢查簽名</h2><table><tr><th>日期</th>`;
+  D.zones.forEach(z=>{html+=`<th>${esc(z)}</th>`});
+  html+=`</tr>`;
+  for(let d=1;d<=days;d++){
+    const dt=`${mo}-${String(d).padStart(2,"0")}`;
+    const sg=aS[dt]||{};
+    html+=`<tr><td>${fmt(dt)}</td>`;
+    D.zones.forEach(z=>{
+      const s=sg[z];
+      if(s) html+=`<td><img src="${s.img}"><br><small>${esc(s.name||'')}</small></td>`;
+      else html+=`<td class="none">未簽</td>`;
+    });
+    html+=`</tr>`;
+  }
+  html+=`</table>`;
+
+  // Maintenance signatures
+  const mFiltered=D.maintenance.filter(m=>m.date&&m.date.startsWith(mo));
+  if(mFiltered.length){
+    html+=`<h2>🔧 維修紀錄簽名</h2><table><tr><th>日期</th><th>設備</th><th>動作</th><th>簽署人</th><th>簽名</th></tr>`;
+    mFiltered.forEach(m=>{
+      const eq=D.equipment.find(e=>e.id===m.equipmentId);
+      html+=`<tr><td>${fmt(m.date)}</td><td>${esc(eq?.name||'—')}</td><td>${esc(m.action)}</td><td>${esc(m.signerName||'')}</td>`;
+      html+=m.signature?`<td><img src="${m.signature}"></td>`:`<td class="none">—</td>`;
+      html+=`</tr>`;
+    });
+    html+=`</table>`;
+  }
+
+  // Transfer signatures
+  const tFiltered=D.transfers.filter(t=>t.sendDate&&t.sendDate.startsWith(mo));
+  if(tFiltered.length){
+    html+=`<h2>🔄 轉移紀錄簽名</h2><table><tr><th>日期</th><th>設備</th><th>目的地</th><th>簽署人</th><th>簽名</th></tr>`;
+    tFiltered.forEach(t=>{
+      const eq=D.equipment.find(e=>e.id===t.equipmentId);
+      html+=`<tr><td>${fmt(t.sendDate)}</td><td>${esc(eq?.name||'—')}</td><td>${esc(t.destination)}</td><td>${esc(t.signerName||'')}</td>`;
+      html+=t.signature?`<td><img src="${t.signature}"></td>`:`<td class="none">—</td>`;
+      html+=`</tr>`;
+    });
+    html+=`</table>`;
+  }
+
+  // Disposal signatures
+  const dFiltered=D.disposals.filter(d=>d.date&&d.date.startsWith(mo));
+  if(dFiltered.length){
+    html+=`<h2>🗑️ 報銷紀錄簽名</h2><table><tr><th>日期</th><th>設備</th><th>原因</th><th>簽署人</th><th>簽名</th></tr>`;
+    dFiltered.forEach(d=>{
+      const eq=D.equipment.find(e=>e.id===d.equipmentId);
+      html+=`<tr><td>${fmt(d.date)}</td><td>${esc(eq?.name||'—')}</td><td>${esc(d.reason)}</td><td>${esc(d.signerName||'')}</td>`;
+      html+=d.signature?`<td><img src="${d.signature}"></td>`:`<td class="none">—</td>`;
+      html+=`</tr>`;
+    });
+    html+=`</table>`;
+  }
+
+  html+=`</body></html>`;
+  const blob=new Blob([html],{type:"text/html;charset=utf-8"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+  a.download=`PT簽名報告_${mo}.html`;a.click();URL.revokeObjectURL(a.href);
+  toast("簽名報告已下載 ✓");
 }
 
 // ═══════════════════════════════════════════════
@@ -1443,16 +1551,10 @@ loadZoom();
 //  INIT
 // ═══════════════════════════════════════════════
 $("dailyDate").value=todayStr();
-$("remarksDate").value=todayStr();
 $("settingsMonth").value=todayStr().slice(0,7);
 $("dailySearch").addEventListener("input",renderDaily);
 $("equipSearch").addEventListener("input",renderEquip);
 $("dailyDate").addEventListener("change",()=>{setupDateListeners(getDate());renderDaily()});
-$("remarksDate").addEventListener("change",()=>{
-  const rd=getRemarksDate();
-  if(rd===getDate()) renderRemarks();
-  else loadRemarksForDate(rd);
-});
 $("dailySearchX").addEventListener("click",()=>{$("dailySearch").value="";renderDaily()});
 $("equipSearchX").addEventListener("click",()=>{$("equipSearch").value="";renderEquip()});
 renderAll();
