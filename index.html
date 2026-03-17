@@ -258,8 +258,19 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--ink);min-heig
   <!-- ═══ REMARKS ═══ -->
   <div id="tab-remarks" class="tab-content hidden">
     <div class="card">
-      <div class="fx jb ac">
-        <div><div class="w8 f14">📝 最近 60 日 Remarks</div><div class="f12 cm">顯示所有有 Remarks 嘅設備</div></div>
+      <div class="fx jb ac fw g8">
+        <div>
+          <div class="w8 f14">📝 Remarks 紀錄</div>
+          <div class="f12 cm mt6">顯示範圍:
+            <select id="remarksDaysSel" class="sort-select" style="width:auto;display:inline;margin:0;padding:5px 8px" onchange="onRemarksDaysChange(this.value)">
+              <option value="30">最近 30 日</option>
+              <option value="60" selected>最近 60 日</option>
+              <option value="90">最近 90 日</option>
+              <option value="180">最近 180 日</option>
+              <option value="365">最近 365 日</option>
+            </select>
+          </div>
+        </div>
         <div class="tar">
           <div class="f12 cm">總 Remarks</div>
           <div id="remarksCount" class="f22 w8" style="color:#1746a2">0</div>
@@ -484,6 +495,18 @@ function renderSortCtrl(containerId){
 // Remark debounce timers
 let remarkTimers={};
 
+// Configurable day range for Remarks & History
+let historyDays=60;
+function loadHistoryDaysPref(){try{const v=localStorage.getItem("pt_histdays");if(v)historyDays=parseInt(v)||60}catch(e){}}
+loadHistoryDaysPref();
+function saveHistoryDaysPref(){try{localStorage.setItem("pt_histdays",String(historyDays))}catch(e){}}
+function onRemarksDaysChange(val){
+  historyDays=parseInt(val)||60;
+  saveHistoryDaysPref();
+  _remarksData=null;
+  loadRemarksData();
+}
+
 // ═══════════════════════════════════════════════
 //  HELPERS
 // ═══════════════════════════════════════════════
@@ -567,7 +590,7 @@ document.querySelectorAll(".tab-btn").forEach(b=>{
     b.classList.add("active");
     document.querySelectorAll(".tab-content").forEach(c=>c.classList.add("hidden"));
     $("tab-"+curTab).classList.remove("hidden");
-    if(curTab==="remarks"){_remarksData=null;loadRemarks60Days();}
+    if(curTab==="remarks"){_remarksData=null;loadRemarksData();}
     renderAll();
   });
 });
@@ -989,11 +1012,11 @@ async function openHistory(eqId){
   const trans=D.transfers.filter(t=>t.equipmentId===eqId);
   const disps=D.disposals.filter(d=>d.equipmentId===eqId);
 
-  // Fetch recent remarks from Firestore (last 60 days)
+  // Fetch recent remarks from Firestore (configurable days)
   let remarkEntries=[];
   try{
     const today=new Date();
-    const past=new Date(today);past.setDate(past.getDate()-60);
+    const past=new Date(today);past.setDate(past.getDate()-historyDays);
     const startD=past.toISOString().slice(0,10);
     const endD=today.toISOString().slice(0,10);
     const snap=await db.collection("dailyChecks")
@@ -1024,9 +1047,9 @@ async function openHistory(eqId){
     </div>`;
 
   if(!timeline.length){
-    body+=`<div class="empty"><i>📋</i><div>暫無歷史紀錄</div><div class="f12" style="margin-top:4px">Remarks 會顯示最近 60 日紀錄</div></div>`;
+    body+=`<div class="empty"><i>📋</i><div>暫無歷史紀錄</div><div class="f12" style="margin-top:4px">Remarks 會顯示最近 ${historyDays} 日紀錄</div></div>`;
   } else {
-    body+=`<div class="f12 cm mb10">共 ${timeline.length} 條紀錄（Remarks 顯示最近 60 日）</div>`;
+    body+=`<div class="f12 cm mb10">共 ${timeline.length} 條紀錄（Remarks 顯示最近 ${historyDays} 日）</div>`;
     timeline.forEach(t=>{
       body+=`<div style="padding:10px 0;border-top:1px solid #f0f1f5">
         <div class="fx ac jb">
@@ -1105,15 +1128,15 @@ function renderAll(){renderDaily();renderRemarks();renderMaint();renderTransfers
 //  RENDER: REMARKS PAGE (last 60 days)
 // ═══════════════════════════════════════════════
 function setRemarksZone(z){remarksZoneFilter=z;renderRemarks()}
-let _remarksData=null; // cached 60-day data
+let _remarksData=null;
 let _remarksLoading=false;
 
-async function loadRemarks60Days(){
+async function loadRemarksData(){
   if(_remarksLoading)return;
   _remarksLoading=true;
   try{
     const today=new Date();
-    const past=new Date(today);past.setDate(past.getDate()-60);
+    const past=new Date(today);past.setDate(past.getDate()-historyDays);
     const startD=past.toISOString().slice(0,10);
     const endD=today.toISOString().slice(0,10);
     const snap=await db.collection("dailyChecks")
@@ -1139,10 +1162,12 @@ async function loadRemarks60Days(){
 
 function renderRemarks(){
   renderZonePills("remarksZonePills",remarksZoneFilter,"setRemarksZone");
+  const sel=$("remarksDaysSel");
+  if(sel)sel.value=String(historyDays);
 
   if(!_remarksData){
     $("remarksList").innerHTML=`<div class="card"><div class="empty"><i>⏳</i><div>載入中...</div></div></div>`;
-    loadRemarks60Days();
+    loadRemarksData();
     $("remarksCount").textContent="…";
     return;
   }
@@ -1156,7 +1181,7 @@ function renderRemarks(){
   $("remarksCount").textContent=data.length;
 
   if(!data.length){
-    $("remarksList").innerHTML=`<div class="card"><div class="empty"><i>📝</i><div>最近 60 日沒有任何 Remarks</div></div></div>`;
+    $("remarksList").innerHTML=`<div class="card"><div class="empty"><i>📝</i><div>最近 ${historyDays} 日沒有任何 Remarks</div></div></div>`;
     return;
   }
 
