@@ -61,6 +61,8 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--ink);min-heig
 .btn-xs-red{background:#fce0e5;color:#a01e32;border-color:#e8a0ad}
 .btn-xs-blue{background:#dde8ff;color:#1746a2;border-color:#a8bde8}
 .btn-xs-del{background:#fce0e5;color:#a01e32;border-color:#e8a0ad}
+.btn-xs-orange{background:#fde8d0;color:#9a4f10;border-color:#e0b888}
+.btn-xs-hist{background:#e8e0f5;color:#5b2d8e;border-color:#c4b0de}
 
 .fl{font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:5px;display:block}
 .fi,.fsel{width:100%;padding:11px 14px;border-radius:var(--rs);border:1.5px solid #b8bfcc;font-size:14px;font-family:var(--font);background:var(--card);color:var(--ink);outline:none;transition:border .2s;margin-bottom:12px}
@@ -214,6 +216,7 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--ink);min-heig
   <button class="tab-btn" data-tab="remarks">📝 Remarks</button>
   <button class="tab-btn" data-tab="maint">🔧 維修紀錄</button>
   <button class="tab-btn" data-tab="transfer">🔄 轉移紀錄</button>
+  <button class="tab-btn" data-tab="disposal">🗑️ 報銷紀錄</button>
   <button class="tab-btn" data-tab="equip">📦 設備管理</button>
   <button class="tab-btn" data-tab="settings">⚙️ 設定</button>
 </div>
@@ -277,6 +280,12 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--ink);min-heig
   <div id="tab-transfer" class="tab-content hidden">
     <div class="zone-pills" id="transZonePills"></div>
     <div id="transferList"></div>
+  </div>
+
+  <!-- ═══ DISPOSAL ═══ -->
+  <div id="tab-disposal" class="tab-content hidden">
+    <div class="zone-pills" id="dispZonePills"></div>
+    <div id="disposalList"></div>
   </div>
 
   <!-- ═══ EQUIP ═══ -->
@@ -420,6 +429,7 @@ db.enablePersistence({synchronizeTabs:true}).catch(e=>console.warn("Persistence:
   equipment/{id} → {zone,name,commonName,location,assetId,serialNumber}
   maintenance/{id} → {equipmentId,date,action,signature,completed,completedDate}
   transfers/{id} → {equipmentId,sendDate,destination,signature,returned,returnedDate}
+  disposals/{id} → {equipmentId,date,reason,signature}
   dailyChecks/{date} → {checks:{eqId:true},remarks:{eqId:"text"}}
   signatures/{date} → {"Zone A":{img,time},...}
 */
@@ -428,11 +438,11 @@ db.enablePersistence({synchronizeTabs:true}).catch(e=>console.warn("Persistence:
 //  STATE
 // ═══════════════════════════════════════════════
 const DEFAULT_ZONES=["Zone A","Zone B","Zone C","Consultation Room","4/F Storeroom","7/F IRA","8/F IRA"];
-let D={zones:[...DEFAULT_ZONES],equipment:[],maintenance:[],transfers:[]};
+let D={zones:[...DEFAULT_ZONES],equipment:[],maintenance:[],transfers:[],disposals:[]};
 let checksCache={},remarksCache={},sigsCache={};
-let loadCount=0;const LOAD_TARGET=4;
+let loadCount=0;const LOAD_TARGET=5;
 // Zone filters per tab
-let dailyZoneFilter="all", maintZoneFilter="all", transZoneFilter="all", remarksZoneFilter="all", equipZoneFilter="all";
+let dailyZoneFilter="all", maintZoneFilter="all", transZoneFilter="all", remarksZoneFilter="all", equipZoneFilter="all", dispZoneFilter="all";
 // Sort
 const SORT_OPTIONS=[
   {key:"name",label:"名稱"},
@@ -527,6 +537,11 @@ db.collection("transfers").orderBy("sendDate","desc").onSnapshot(snap=>{
   markLoaded();renderAll();
 },e=>{console.error(e);markLoaded()});
 
+db.collection("disposals").orderBy("date","desc").onSnapshot(snap=>{
+  D.disposals=snap.docs.map(d=>({id:d.id,...d.data()}));
+  markLoaded();renderAll();
+},e=>{console.error(e);markLoaded()});
+
 let dateUnsubs={c:null,s:null};
 function setupDateListeners(date){
   if(dateUnsubs.c)dateUnsubs.c();if(dateUnsubs.s)dateUnsubs.s();
@@ -569,6 +584,7 @@ function equipByZone(){
 }
 function activeMaintIds(){return new Set(D.maintenance.filter(m=>!m.completed).map(m=>m.equipmentId))}
 function activeTransferIds(){return new Set(D.transfers.filter(t=>!t.returned).map(t=>t.equipmentId))}
+function activeDisposalIds(){return new Set(D.disposals.map(d=>d.equipmentId))}
 
 // ═══════════════════════════════════════════════
 //  ZONE PILLS RENDERER
@@ -642,7 +658,7 @@ function setDailyZone(z){dailyZoneFilter=z;renderDaily()}
 
 function renderDaily(){
   const date=getDate(),checks=checksCache[date]||{},remarks=remarksCache[date]||{},sigs=sigsCache[date]||{};
-  const bz=equipByZone(),mIds=activeMaintIds(),tIds=activeTransferIds();
+  const bz=equipByZone(),mIds=activeMaintIds(),tIds=activeTransferIds(),dIds=activeDisposalIds();
   const sv=($("dailySearch").value||"").toLowerCase().trim();
 
   // Zone pills
@@ -678,7 +694,7 @@ function renderDaily(){
     }
 
     eq.forEach(e=>{
-      const c=!!checks[e.id],hm=mIds.has(e.id),ht=tIds.has(e.id);
+      const c=!!checks[e.id],hm=mIds.has(e.id),ht=tIds.has(e.id),hd=dIds.has(e.id);
       const rm=remarks[e.id]||"";
       h+=`<div class="eqr">
         <div class="chk ${c?'on':''}" onclick="toggleChk('${e.id}')" style="margin-top:2px">${c?'✓':''}</div>
@@ -687,6 +703,7 @@ function renderDaily(){
             <span class="oe">${esc(e.name)}</span>
             ${hm?'<span class="badge bg-red" style="font-size:10px">🔧 維修中</span>':''}
             ${ht?'<span class="badge bg-blue" style="font-size:10px">🔄 轉移中</span>':''}
+            ${hd?'<span class="badge bg-orange" style="font-size:10px">🗑️ 已報銷</span>':''}
           </div>
           <div class="f11 cm">${esc(e.commonName)} · ${esc(e.assetId)}</div>
           <div class="f11 cm">Location: ${esc(e.location)} · SN: ${esc(e.serialNumber)}</div>
@@ -694,6 +711,8 @@ function renderDaily(){
           <div class="eq-actions">
             <button class="btn-xs btn-xs-red" onclick="openMaintFormFor('${e.id}')">🔧 維修</button>
             <button class="btn-xs btn-xs-blue" onclick="openTransFormFor('${e.id}')">🔄 轉移</button>
+            <button class="btn-xs btn-xs-orange" onclick="openDispFormFor('${e.id}')">🗑️ 報銷</button>
+            <button class="btn-xs btn-xs-hist" onclick="openHistory('${e.id}')">📋 歷史</button>
           </div>
         </div>
       </div>`;
@@ -873,6 +892,157 @@ function deleteTrans(id){
 }
 
 // ═══════════════════════════════════════════════
+//  RENDER: DISPOSALS (with zone filter + delete)
+// ═══════════════════════════════════════════════
+function setDispZone(z){dispZoneFilter=z;renderDisposals()}
+
+function renderDisposals(){
+  renderZonePills("dispZonePills",dispZoneFilter,"setDispZone");
+  let list=D.disposals;
+  if(dispZoneFilter!=="all"){
+    const eqIds=new Set(D.equipment.filter(e=>e.zone===dispZoneFilter).map(e=>e.id));
+    list=list.filter(d=>eqIds.has(d.equipmentId));
+  }
+  if(!list.length){
+    $("disposalList").innerHTML=`<div class="card"><div class="empty"><i>🗑️</i><div>暫無報銷紀錄</div></div></div>`;return;
+  }
+  let h="";
+  list.forEach(d=>{
+    const eq=D.equipment.find(e=>e.id===d.equipmentId);
+    h+=`<div class="card bdr-red">
+      <div class="fx jb as mb6">
+        <div><div class="w7 f14">${esc(eq?.name||'未知設備')}</div><div class="f12 cm">${esc(eq?.assetId||'')} · ${esc(eq?.zone||'')}</div></div>
+        <div class="fx g4 ac">
+          <span class="badge bg-orange">已報銷</span>
+          <button class="btn-xs btn-xs-del" onclick="deleteDisp('${d.id}')">🗑</button>
+        </div>
+      </div>
+      <div class="adet"><strong>原因:</strong> ${esc(d.reason)}</div>
+      <div class="f12 cm">日期: ${fmt(d.date)}</div>
+      ${d.signature?'<div class="mt8"><img src="'+d.signature+'" class="sigp"></div>':''}
+    </div>`;
+  });
+  $("disposalList").innerHTML=h;
+}
+
+function deleteDisp(id){
+  if(!confirm("確定刪除此報銷紀錄？"))return;
+  db.collection("disposals").doc(id).delete().then(()=>toast("已刪除")).catch(console.error);
+}
+
+// ═══════════════════════════════════════════════
+//  DISPOSAL FORM
+// ═══════════════════════════════════════════════
+let _dSig=null;
+
+function openDispFormFor(eqId){
+  _dSig=null;
+  _renderDF(eqId);
+}
+
+function _renderDF(eqId,dtV,reasonV){
+  const eq=D.equipment.find(e=>e.id===eqId);
+  if(!eq){alert("找不到設備");return}
+  const sigH=_dSig
+    ?`<div class="mb12"><div class="fl">助理簽名 ✓</div><img src="${_dSig}" class="sigp"></div>`
+    :`<button class="btn btn-gho btn-full mb12" onclick="_dOpenSig('${eqId}')">✍️ 助理簽名</button>`;
+  openModal("新增報銷紀錄",`
+    <div class="card" style="margin-bottom:16px;background:#fafbfd">
+      <div class="w7 f14">${esc(eq.name)}</div>
+      <div class="f12 cm">${esc(eq.commonName)} · ${esc(eq.assetId)}</div>
+      <div class="mt6"><span class="badge bg-ink">${esc(eq.zone)}</span></div>
+    </div>
+    <label class="fl">日期</label><input type="date" id="dDate" class="fi" value="${dtV||getDate()}">
+    <label class="fl">報銷原因</label><input class="fi" id="dReason" placeholder="e.g. 設備老化無法維修" value="${esc(reasonV||'')}">
+    <div id="dSigA">${sigH}</div>
+    <button class="btn btn-red btn-full" onclick="_dSave('${eqId}')">確認報銷</button>`);
+}
+
+async function _dOpenSig(eqId){
+  const dV=$("dDate").value,rV=$("dReason").value;
+  const img=await openSignPad("助理簽名 — 報銷紀錄");
+  if(img)_dSig=img;
+  _renderDF(eqId,dV,rV);
+}
+
+function _dSave(eqId){
+  const reason=$("dReason").value.trim();
+  if(!reason){alert("請填寫報銷原因");return}
+  if(!_dSig){alert("請先簽名");return}
+  db.collection("disposals").doc(uid()).set({
+    equipmentId:eqId,date:$("dDate").value,reason,signature:_dSig
+  }).then(()=>{toast("報銷紀錄已新增");_dSig=null;closeModal()}).catch(e=>alert("儲存失敗: "+e.message));
+}
+
+// ═══════════════════════════════════════════════
+//  EQUIPMENT HISTORY MODAL
+// ═══════════════════════════════════════════════
+async function openHistory(eqId){
+  const eq=D.equipment.find(e=>e.id===eqId);
+  if(!eq){alert("找不到設備");return}
+
+  // Gather all records for this equipment
+  const maints=D.maintenance.filter(m=>m.equipmentId===eqId);
+  const trans=D.transfers.filter(t=>t.equipmentId===eqId);
+  const disps=D.disposals.filter(d=>d.equipmentId===eqId);
+
+  // Fetch recent remarks from Firestore (last 60 days)
+  let remarkEntries=[];
+  try{
+    const today=new Date();
+    const past=new Date(today);past.setDate(past.getDate()-60);
+    const startD=past.toISOString().slice(0,10);
+    const endD=today.toISOString().slice(0,10);
+    const snap=await db.collection("dailyChecks")
+      .where(firebase.firestore.FieldPath.documentId(),">=",startD)
+      .where(firebase.firestore.FieldPath.documentId(),"<=",endD).get();
+    snap.forEach(doc=>{
+      const data=doc.data();
+      const rm=(data.remarks||{})[eqId];
+      if(rm&&rm.trim()) remarkEntries.push({date:doc.id,text:rm});
+    });
+    remarkEntries.sort((a,b)=>b.date.localeCompare(a.date));
+  }catch(e){console.error(e)}
+
+  // Build timeline
+  let timeline=[];
+  maints.forEach(m=>timeline.push({date:m.date,type:'maint',icon:'🔧',label:'維修',detail:m.action,status:m.completed?'已完成':'維修中',statusClass:m.completed?'bg-green':'bg-red'}));
+  trans.forEach(t=>timeline.push({date:t.sendDate,type:'transfer',icon:'🔄',label:'轉移',detail:'目的地: '+t.destination,status:t.returned?'已歸還':'轉移中',statusClass:t.returned?'bg-green':'bg-blue'}));
+  disps.forEach(d=>timeline.push({date:d.date,type:'disposal',icon:'🗑️',label:'報銷',detail:'原因: '+d.reason,status:'已報銷',statusClass:'bg-orange'}));
+  remarkEntries.forEach(r=>timeline.push({date:r.date,type:'remark',icon:'📝',label:'Remark',detail:r.text,status:'',statusClass:''}));
+  timeline.sort((a,b)=>b.date.localeCompare(a.date));
+
+  let body=`
+    <div class="card" style="margin-bottom:16px;background:#fafbfd">
+      <div class="w7 f14">${esc(eq.name)}</div>
+      <div class="f12 cm">${esc(eq.commonName)} · ${esc(eq.assetId)}</div>
+      <div class="f12 cm">Location: ${esc(eq.location)} · SN: ${esc(eq.serialNumber)}</div>
+      <div class="mt6"><span class="badge bg-ink">${esc(eq.zone)}</span></div>
+    </div>`;
+
+  if(!timeline.length){
+    body+=`<div class="empty"><i>📋</i><div>暫無歷史紀錄</div><div class="f12" style="margin-top:4px">Remarks 會顯示最近 60 日紀錄</div></div>`;
+  } else {
+    body+=`<div class="f12 cm mb10">共 ${timeline.length} 條紀錄（Remarks 顯示最近 60 日）</div>`;
+    timeline.forEach(t=>{
+      body+=`<div style="padding:10px 0;border-top:1px solid #f0f1f5">
+        <div class="fx ac jb">
+          <div class="fx ac g6">
+            <span style="font-size:14px">${t.icon}</span>
+            <span class="w6 f13">${t.label}</span>
+            ${t.status?'<span class="badge '+t.statusClass+'" style="font-size:10px">'+esc(t.status)+'</span>':''}
+          </div>
+          <span class="f11 cm">${fmt(t.date)}</span>
+        </div>
+        <div class="f12" style="margin-top:4px;color:#444e5f">${esc(t.detail)}</div>
+      </div>`;
+    });
+  }
+
+  openModal("📋 設備歷史 — "+eq.name,body,true);
+}
+
+// ═══════════════════════════════════════════════
 //  RENDER: EQUIPMENT
 // ═══════════════════════════════════════════════
 function setEquipZone(z){equipZoneFilter=z;renderEquip()}
@@ -926,7 +1096,7 @@ function renderSettings(){
   $("settingsMonth").value=getMonth();
 }
 
-function renderAll(){renderDaily();renderRemarks();renderMaint();renderTransfers();renderEquip();renderSettings()}
+function renderAll(){renderDaily();renderRemarks();renderMaint();renderTransfers();renderDisposals();renderEquip();renderSettings()}
 
 // ═══════════════════════════════════════════════
 //  RENDER: REMARKS PAGE
@@ -1207,9 +1377,16 @@ async function exportMonthly(){
   });
   const ws3=XLSX.utils.aoa_to_sheet(r3);
 
+  const r4=[["日期","設備名稱","Asset ID","Zone","報銷原因"]];
+  D.disposals.filter(d=>d.date&&d.date.startsWith(mo)).forEach(d=>{
+    const eq=D.equipment.find(e=>e.id===d.equipmentId);
+    r4.push([fmt(d.date),eq?.name||"—",eq?.assetId||"—",eq?.zone||"—",d.reason]);
+  });
+  const ws4=XLSX.utils.aoa_to_sheet(r4);
+
   const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws1,"每日檢查");XLSX.utils.book_append_sheet(wb,ws2,"維修紀錄");XLSX.utils.book_append_sheet(wb,ws3,"轉移紀錄");
-  [ws1,ws2,ws3].forEach(ws=>{const ref=ws["!ref"];if(!ref)return;const rng=XLSX.utils.decode_range(ref),cols=[];for(let c=rng.s.c;c<=rng.e.c;c++){let mx=10;for(let r=rng.s.r;r<=rng.e.r;r++){const cl=ws[XLSX.utils.encode_cell({r,c})];if(cl&&cl.v)mx=Math.max(mx,String(cl.v).length*1.6)}cols.push({wch:Math.min(mx,32)})}ws["!cols"]=cols});
+  XLSX.utils.book_append_sheet(wb,ws1,"每日檢查");XLSX.utils.book_append_sheet(wb,ws2,"維修紀錄");XLSX.utils.book_append_sheet(wb,ws3,"轉移紀錄");XLSX.utils.book_append_sheet(wb,ws4,"報銷紀錄");
+  [ws1,ws2,ws3,ws4].forEach(ws=>{const ref=ws["!ref"];if(!ref)return;const rng=XLSX.utils.decode_range(ref),cols=[];for(let c=rng.s.c;c<=rng.e.c;c++){let mx=10;for(let r=rng.s.r;r<=rng.e.r;r++){const cl=ws[XLSX.utils.encode_cell({r,c})];if(cl&&cl.v)mx=Math.max(mx,String(cl.v).length*1.6)}cols.push({wch:Math.min(mx,32)})}ws["!cols"]=cols});
   XLSX.writeFile(wb,`PT設備管理_${mo}.xlsx`);toast("Excel 已下載 ✓");
 }
 
@@ -1221,7 +1398,7 @@ async function clearAllData(){
   if(!confirm("確定清除所有資料？不可還原！"))return;
   if(!confirm("再次確認：真的要刪除？"))return;
   toast("正在清除...");
-  for(const col of ["equipment","maintenance","transfers","dailyChecks","signatures"]){
+  for(const col of ["equipment","maintenance","transfers","disposals","dailyChecks","signatures"]){
     const snap=await db.collection(col).get();
     for(let s=0;s<snap.docs.length;s+=450){const batch=db.batch();snap.docs.slice(s,s+450).forEach(d=>batch.delete(d.ref));await batch.commit()}
   }
